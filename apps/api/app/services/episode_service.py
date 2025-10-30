@@ -1,11 +1,45 @@
 """Episode service for business logic."""
 from typing import Any, Optional
+import yt_dlp
 
 from app.services.database import supabase
 
 
 class EpisodeService:
     """Service for episode-related operations."""
+
+    def fetch_youtube_metadata(self, youtube_url: str) -> dict[str, Any]:
+        """Fetch metadata from YouTube using yt-dlp."""
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+        }
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(youtube_url, download=False)
+                description = info.get('description', '')
+                print(f"✅ Fetched metadata - Title: {info.get('title', 'Untitled')}")
+                print(f"✅ Description length: {len(description)} characters")
+                print(f"✅ Description preview: {description[:200]}..." if description else "⚠️ No description found")
+                
+                return {
+                    'title': info.get('title', 'Untitled'),
+                    'duration_seconds': int(info.get('duration', 0)),
+                    'description': description,
+                    'thumbnail_url': info.get('thumbnail'),
+                    'upload_date': info.get('upload_date'),  # Format: YYYYMMDD
+                }
+        except Exception as e:
+            print(f"❌ Error fetching YouTube metadata: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'title': 'Unknown Title',
+                'duration_seconds': 0,
+                'description': '',
+            }
 
     async def create_episode(self, youtube_url: str) -> dict[str, Any]:
         """Create a new episode."""
@@ -14,13 +48,20 @@ class EpisodeService:
         if existing.data:
             raise ValueError(f"Episode already exists for this YouTube URL. Episode ID: {existing.data[0]['id']}")
         
+        # Fetch YouTube metadata
+        print(f"Fetching YouTube metadata for: {youtube_url}")
+        metadata = self.fetch_youtube_metadata(youtube_url)
+        print(f"Metadata fetched - Title: {metadata['title']}, Duration: {metadata['duration_seconds']}s")
+        
         data = {
             "youtube_url": youtube_url,
-            "title": "Processing...",
-            "duration_seconds": 0,
+            "title": metadata['title'],
+            "duration_seconds": metadata['duration_seconds'],
+            "description": metadata['description'],
             "status": "pending",
         }
         result = supabase.table("episodes").insert(data).execute()
+        print(f"Episode created successfully: {result.data[0]['id']}")
         return result.data[0]
 
     async def list_episodes(
@@ -36,7 +77,19 @@ class EpisodeService:
             query = query.eq("status", status)
         
         result = query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
-        return result.data
+        episodes = result.data
+        
+        # Add comments count for each episode
+        for episode in episodes:
+            comments_result = (
+                supabase.table("episode_comments")
+                .select("id", count="exact")
+                .eq("episode_id", episode["id"])
+                .execute()
+            )
+            episode["comments_count"] = comments_result.count or 0
+        
+        return episodes
 
     async def get_episode(self, episode_id: str) -> Optional[dict[str, Any]]:
         """Get a single episode by ID."""
@@ -107,9 +160,19 @@ class EpisodeService:
         self, episode_id: str, data: dict[str, Any]
     ) -> Optional[dict[str, Any]]:
         """Update episode metadata."""
+        from datetime import datetime
+        
+        # Convert datetime objects to ISO strings for JSON serialization
+        cleaned_data = {}
+        for key, value in data.items():
+            if isinstance(value, datetime):
+                cleaned_data[key] = value.isoformat()
+            else:
+                cleaned_data[key] = value
+        
         result = (
             supabase.table("episodes")
-            .update(data)
+            .update(cleaned_data)
             .eq("id", episode_id)
             .execute()
         )

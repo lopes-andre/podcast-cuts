@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import episodes, highlights, prompts, speakers, seed
+from app.routers import episodes, highlights, prompts, speakers, seed, comments
 
 app = FastAPI(
     title="Podcast Highlighter API",
@@ -28,6 +28,7 @@ app.include_router(highlights.router, prefix="/api/highlights", tags=["highlight
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
 app.include_router(speakers.router, prefix="/api/speakers", tags=["speakers"])
 app.include_router(seed.router, prefix="/api/seed", tags=["seed"])
+app.include_router(comments.router, prefix="/api/episodes", tags=["comments"])
 
 
 @app.get("/")

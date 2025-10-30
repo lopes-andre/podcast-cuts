@@ -47,6 +47,15 @@ supabase db push
 1. `001_initial_schema.sql` - Creates all tables, indexes, and triggers
 2. `002_seed_data.sql` - Inserts default prompt templates
 3. `003_rename_used_to_approved.sql` - Updates highlight status enum from "used" to "approved"
+4. `004_add_description_and_comments.sql` - Adds description field and episode_comments table
+
+## Database Cleanup (⚠️ Development Only)
+
+To completely wipe the database and start fresh:
+```bash
+# Run in Supabase SQL Editor: 999_clean_database.sql
+# WARNING: This deletes ALL data!
+```
 
 ## Local Development
 
