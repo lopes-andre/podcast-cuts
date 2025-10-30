@@ -56,7 +56,10 @@ class EpisodeService:
         
         segments = segments_result.data
         
-        # Get all speakers for this episode
+        if not segments:
+            return segments
+        
+        # Get all speakers for this episode (1 query)
         speakers_result = (
             supabase.table("speakers")
             .select("*")
@@ -65,19 +68,33 @@ class EpisodeService:
         )
         speakers_map = {s["id"]: s for s in speakers_result.data}
         
-        # Get segment-speaker relationships
-        for segment in segments:
-            segment_speakers_result = (
+        # Batch fetch all segment-speaker relationships at once (1-2 queries instead of N)
+        segment_ids = [s["id"] for s in segments]
+        segment_speaker_map = {}
+        
+        # Fetch in batches to avoid query size limits
+        batch_size = 100
+        for i in range(0, len(segment_ids), batch_size):
+            batch = segment_ids[i:i + batch_size]
+            ss_result = (
                 supabase.table("segment_speakers")
-                .select("speaker_id")
-                .eq("segment_id", segment["id"])
+                .select("segment_id, speaker_id")
+                .in_("segment_id", batch)
                 .execute()
             )
             
-            # Add speaker info to segment
+            for ss in ss_result.data:
+                if ss["segment_id"] not in segment_speaker_map:
+                    segment_speaker_map[ss["segment_id"]] = []
+                segment_speaker_map[ss["segment_id"]].append(ss["speaker_id"])
+        
+        # Add speaker info to each segment
+        for segment in segments:
+            speaker_ids = segment_speaker_map.get(segment["id"], [])
             speaker_names = []
-            for ss in segment_speakers_result.data:
-                speaker = speakers_map.get(ss["speaker_id"])
+            
+            for speaker_id in speaker_ids:
+                speaker = speakers_map.get(speaker_id)
                 if speaker:
                     name = speaker.get("mapped_name") or speaker.get("speaker_label")
                     speaker_names.append(name)

@@ -34,6 +34,7 @@ export default function EpisodeDetailPage() {
   const [seeding, setSeeding] = useState(false);
   const [openDialogId, setOpenDialogId] = useState<string | null>(null);
   const [speakerNameInput, setSpeakerNameInput] = useState<Record<string, string>>({});
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     fetchEpisodeData();
@@ -69,6 +70,23 @@ export default function EpisodeDetailPage() {
     const newName = speakerNameInput[speakerId];
     if (!newName || !newName.trim()) return;
 
+    // Optimistic update - update UI immediately for instant feedback
+    const oldSpeakers = [...speakers];
+    const updatedSpeakers = speakers.map((s) =>
+      s.id === speakerId ? { ...s, mapped_name: newName.trim() } : s
+    );
+    setSpeakers(updatedSpeakers);
+    
+    // Close dialog immediately
+    setOpenDialogId(null);
+    setSpeakerNameInput((prev) => {
+      const updated = { ...prev };
+      delete updated[speakerId];
+      return updated;
+    });
+
+    setUpdating(true);
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/speakers/${speakerId}`,
@@ -80,18 +98,39 @@ export default function EpisodeDetailPage() {
       );
 
       if (response.ok) {
-        // Close dialog and reset state
-        setOpenDialogId(null);
-        setSpeakerNameInput((prev) => {
-          const updated = { ...prev };
-          delete updated[speakerId];
-          return updated;
-        });
-        // Refresh data to show updated speaker names
-        await fetchEpisodeData();
+        // Refetch in background to update segments and highlights with new speaker names
+        const [speakersRes, segmentsRes, highlightsRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/speakers/episode/${episodeId}`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}/segments`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/highlights?episode_id=${episodeId}`),
+        ]);
+
+        if (speakersRes.ok) {
+          const speakersData = await speakersRes.json();
+          setSpeakers(speakersData);
+        }
+
+        if (segmentsRes.ok) {
+          const segmentsData = await segmentsRes.json();
+          setSegments(segmentsData);
+        }
+
+        if (highlightsRes.ok) {
+          const highlightsData = await highlightsRes.json();
+          setHighlights(highlightsData);
+        }
+      } else {
+        // Rollback on error
+        setSpeakers(oldSpeakers);
+        alert("Failed to update speaker name");
       }
     } catch (error) {
       console.error("Failed to update speaker:", error);
+      // Rollback on error
+      setSpeakers(oldSpeakers);
+      alert("Failed to update speaker name");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -112,29 +151,29 @@ export default function EpisodeDetailPage() {
 
   const fetchEpisodeData = async () => {
     try {
-      // Fetch episode
-      const episodeRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}`);
+      // Fetch all data in parallel for better performance
+      const [episodeRes, segmentsRes, speakersRes, highlightsRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}/segments`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/speakers/episode/${episodeId}`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/highlights?episode_id=${episodeId}`),
+      ]);
+
       if (episodeRes.ok) {
         const episodeData = await episodeRes.json();
         setEpisode(episodeData);
       }
 
-      // Fetch segments
-      const segmentsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}/segments`);
       if (segmentsRes.ok) {
         const segmentsData = await segmentsRes.json();
         setSegments(segmentsData);
       }
 
-      // Fetch speakers
-      const speakersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/speakers/episode/${episodeId}`);
       if (speakersRes.ok) {
         const speakersData = await speakersRes.json();
         setSpeakers(speakersData);
       }
 
-      // Fetch highlights for this episode
-      const highlightsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/highlights?episode_id=${episodeId}`);
       if (highlightsRes.ok) {
         const highlightsData = await highlightsRes.json();
         setHighlights(highlightsData);
@@ -148,7 +187,8 @@ export default function EpisodeDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         <p className="text-muted-foreground">Loading episode...</p>
       </div>
     );
@@ -178,6 +218,12 @@ export default function EpisodeDetailPage() {
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold">{episode.title}</h1>
             <StatusBadge status={episode.status} type="episode" />
+            {updating && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                <span>Updating...</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span>Duration: {formatTimeRange(0, episode.duration_seconds)}</span>

@@ -29,53 +29,114 @@ class HighlightService:
         
         highlights = result.data
         
-        # Add speaker information to each highlight by finding overlapping segments
-        for highlight in highlights:
-            try:
-                episode_id = highlight["episode_id"]
-                start_time = highlight["start_s"]
-                end_time = highlight["end_s"]
-                
-                # Get all segments for this episode that overlap with the highlight time range
+        if not highlights:
+            return highlights
+        
+        # Optimize speaker fetching: batch queries instead of N+1
+        try:
+            # Get unique episode IDs and their highlight time ranges
+            episode_ids = list(set(h["episode_id"] for h in highlights))
+            
+            # Calculate min/max time ranges per episode to fetch only relevant segments
+            episode_time_ranges = {}
+            for h in highlights:
+                ep_id = h["episode_id"]
+                if ep_id not in episode_time_ranges:
+                    episode_time_ranges[ep_id] = {"min": h["start_s"], "max": h["end_s"]}
+                else:
+                    episode_time_ranges[ep_id]["min"] = min(episode_time_ranges[ep_id]["min"], h["start_s"])
+                    episode_time_ranges[ep_id]["max"] = max(episode_time_ranges[ep_id]["max"], h["end_s"])
+            
+            # Fetch only segments that overlap with highlight time ranges (not all segments)
+            all_segments = []
+            for ep_id in episode_ids:
+                time_range = episode_time_ranges[ep_id]
                 segments_result = (
                     supabase.table("segments")
-                    .select("id")
-                    .eq("episode_id", episode_id)
-                    .gte("end_s", start_time)  # Segment ends after highlight starts
-                    .lte("start_s", end_time)  # Segment starts before highlight ends
+                    .select("id, episode_id, start_s, end_s")
+                    .eq("episode_id", ep_id)
+                    .gte("end_s", time_range["min"])  # Segment ends after earliest highlight
+                    .lte("start_s", time_range["max"])  # Segment starts before latest highlight
                     .execute()
                 )
-                
-                # Get unique speakers from all overlapping segments
-                speaker_ids_set = set()
-                for segment in segments_result.data:
-                    segment_speakers_result = (
-                        supabase.table("segment_speakers")
-                        .select("speaker_id")
-                        .eq("segment_id", segment["id"])
-                        .execute()
-                    )
-                    for ss in segment_speakers_result.data:
-                        speaker_ids_set.add(ss["speaker_id"])
-                
-                # Get speaker details
-                speaker_names = []
-                for speaker_id in speaker_ids_set:
-                    speaker_result = (
-                        supabase.table("speakers")
-                        .select("*")
-                        .eq("id", speaker_id)
-                        .execute()
-                    )
-                    if speaker_result.data:
-                        speaker = speaker_result.data[0]
-                        name = speaker.get("mapped_name") or speaker.get("speaker_label")
-                        speaker_names.append(name)
-                
-                highlight["speakers"] = speaker_names
-            except Exception as e:
-                # If speaker fetching fails, just set empty array and continue
-                print(f"Error fetching speakers for highlight {highlight['id']}: {e}")
+                all_segments.extend(segments_result.data)
+            
+            # Get all segment IDs
+            segment_ids = [s["id"] for s in all_segments]
+            
+            # Fetch all segment-speaker relationships in batches (Supabase has query limits)
+            segment_speaker_map = {}
+            batch_size = 100
+            for i in range(0, len(segment_ids), batch_size):
+                batch = segment_ids[i:i + batch_size]
+                ss_result = (
+                    supabase.table("segment_speakers")
+                    .select("segment_id, speaker_id")
+                    .in_("segment_id", batch)
+                    .execute()
+                )
+                for ss in ss_result.data:
+                    if ss["segment_id"] not in segment_speaker_map:
+                        segment_speaker_map[ss["segment_id"]] = []
+                    segment_speaker_map[ss["segment_id"]].append(ss["speaker_id"])
+            
+            # Fetch all speakers for these episodes in one query
+            speakers_map = {}
+            for ep_id in episode_ids:
+                speakers_result = (
+                    supabase.table("speakers")
+                    .select("*")
+                    .eq("episode_id", ep_id)
+                    .execute()
+                )
+                for speaker in speakers_result.data:
+                    speakers_map[speaker["id"]] = speaker
+            
+            # Build segment lookup by episode and time range
+            segments_by_episode = {}
+            for seg in all_segments:
+                ep_id = seg["episode_id"]
+                if ep_id not in segments_by_episode:
+                    segments_by_episode[ep_id] = []
+                segments_by_episode[ep_id].append(seg)
+            
+            # Now assign speakers to each highlight
+            for highlight in highlights:
+                try:
+                    episode_id = highlight["episode_id"]
+                    start_time = highlight["start_s"]
+                    end_time = highlight["end_s"]
+                    
+                    # Find overlapping segments for this highlight
+                    episode_segments = segments_by_episode.get(episode_id, [])
+                    overlapping_segments = [
+                        seg for seg in episode_segments
+                        if seg["end_s"] >= start_time and seg["start_s"] <= end_time
+                    ]
+                    
+                    # Get unique speakers from overlapping segments
+                    speaker_ids_set = set()
+                    for seg in overlapping_segments:
+                        speaker_ids = segment_speaker_map.get(seg["id"], [])
+                        speaker_ids_set.update(speaker_ids)
+                    
+                    # Get speaker names
+                    speaker_names = []
+                    for speaker_id in speaker_ids_set:
+                        speaker = speakers_map.get(speaker_id)
+                        if speaker:
+                            name = speaker.get("mapped_name") or speaker.get("speaker_label")
+                            speaker_names.append(name)
+                    
+                    highlight["speakers"] = speaker_names
+                except Exception as e:
+                    print(f"Error processing speakers for highlight {highlight['id']}: {e}")
+                    highlight["speakers"] = []
+                    
+        except Exception as e:
+            print(f"Error in batch speaker fetching: {e}")
+            # Fallback: set empty speakers for all
+            for highlight in highlights:
                 highlight["speakers"] = []
         
         return highlights
