@@ -135,14 +135,117 @@ class HighlightService:
                 except Exception as e:
                     print(f"Error processing speakers for highlight {highlight['id']}: {e}")
                     highlight["speakers"] = []
+            
+            # Fetch comments for all highlights in batch
+            highlight_ids = [h["id"] for h in highlights]
+            comments_result = (
+                supabase.table("highlight_comments")
+                .select("*")
+                .in_("highlight_id", highlight_ids)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            
+            # Group comments by highlight_id
+            comments_by_highlight = {}
+            for comment in comments_result.data:
+                hid = comment["highlight_id"]
+                if hid not in comments_by_highlight:
+                    comments_by_highlight[hid] = []
+                comments_by_highlight[hid].append({
+                    "id": comment["id"],
+                    "content": comment["content"],
+                    "created_at": comment["created_at"],
+                })
+            
+            # Fetch highlight-segment relationships in batch
+            hs_result = (
+                supabase.table("highlight_segments")
+                .select("highlight_id, segment_id, sequence_order")
+                .in_("highlight_id", highlight_ids)
+                .order("sequence_order")
+                .execute()
+            )
+            
+            # Group segment IDs by highlight_id
+            segments_by_highlight = {}
+            for hs in hs_result.data:
+                hid = hs["highlight_id"]
+                if hid not in segments_by_highlight:
+                    segments_by_highlight[hid] = []
+                segments_by_highlight[hid].append(hs["segment_id"])
+            
+            # Fetch prompt info for all highlights that have prompts
+            prompt_ids = [h["prompt_id"] for h in highlights if h.get("prompt_id")]
+            prompts_map = {}
+            if prompt_ids:
+                prompts_result = (
+                    supabase.table("prompts")
+                    .select("id, name, version")
+                    .in_("id", list(set(prompt_ids)))
+                    .execute()
+                )
+                prompts_map = {p["id"]: p for p in prompts_result.data}
+            
+            # Fetch social profiles for all highlights
+            hp_result = (
+                supabase.table("highlight_profiles")
+                .select("highlight_id, profile_id")
+                .in_("highlight_id", highlight_ids)
+                .execute()
+            )
+            
+            profile_ids_set = set(hp["profile_id"] for hp in hp_result.data)
+            profiles_map = {}
+            if profile_ids_set:
+                profiles_result = (
+                    supabase.table("social_profiles")
+                    .select("id, name")
+                    .in_("id", list(profile_ids_set))
+                    .execute()
+                )
+                profiles_map = {p["id"]: p["name"] for p in profiles_result.data}
+            
+            # Group profile names by highlight_id
+            profiles_by_highlight = {}
+            for hp in hp_result.data:
+                hid = hp["highlight_id"]
+                if hid not in profiles_by_highlight:
+                    profiles_by_highlight[hid] = []
+                profile_name = profiles_map.get(hp["profile_id"], "Unknown")
+                profiles_by_highlight[hid].append(profile_name)
+            
+            # Add all enhanced data to each highlight
+            for highlight in highlights:
+                hid = highlight["id"]
+                
+                # Add comments
+                highlight["comments"] = comments_by_highlight.get(hid, [])
+                
+                # Add segment IDs (ordered)
+                highlight["segment_ids"] = segments_by_highlight.get(hid, [])
+                
+                # Add prompt info
+                prompt_id = highlight.get("prompt_id")
+                if prompt_id and prompt_id in prompts_map:
+                    highlight["prompt"] = prompts_map[prompt_id]
+                else:
+                    highlight["prompt"] = None
+                
+                # Add social profiles
+                highlight["social_profiles"] = profiles_by_highlight.get(hid, [])
                     
         except Exception as e:
-            print(f"Error in batch speaker fetching: {e}")
+            print(f"Error in batch fetching enhanced highlight data: {e}")
             import traceback
             traceback.print_exc()
-            # Fallback: set empty speakers for all
+            # Fallback: set empty data for all
             for highlight in highlights:
-                highlight["speakers"] = []
+                highlight["speakers"] = highlight.get("speakers", [])
+                highlight["comments"] = []
+                highlight["segment_ids"] = []
+                highlight["prompt"] = None
+                highlight["social_profiles"] = []
         
         return highlights
 
