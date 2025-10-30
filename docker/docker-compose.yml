@@ -6,7 +6,7 @@ services:
     image: supabase/postgres:15.1.0.117
     container_name: podcast-highlighter-db
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: podcast_highlighter
     ports:
       - "5432:5432"

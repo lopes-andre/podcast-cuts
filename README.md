@@ -193,6 +193,13 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ### Development with Docker Compose
 
+**Set environment variables first:**
+```bash
+# Create .env file in project root (optional - uses defaults if not set)
+echo "POSTGRES_PASSWORD=your_secure_password" > .env
+```
+
+**Start services:**
 ```bash
 # From project root
 docker-compose -f docker/docker-compose.yml up -d
