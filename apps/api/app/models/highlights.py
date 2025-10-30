@@ -49,6 +49,20 @@ class HighlightCommentInfo(BaseModel):
         from_attributes = True
 
 
+class SegmentInfo(BaseModel):
+    """Segment information embedded in highlight response."""
+    
+    id: str
+    start_s: float
+    end_s: float
+    text: str
+    speakers: list[str] = []
+    sequence_order: int
+    
+    class Config:
+        from_attributes = True
+
+
 class HighlightResponse(BaseModel):
     """Highlight response model with full related data."""
 
@@ -64,7 +78,8 @@ class HighlightResponse(BaseModel):
     edited_video_link: Optional[str] = None
     speakers: list[str] = []  # List of speaker names in this highlight
     comments: list[HighlightCommentInfo] = []  # All comments for this highlight
-    segment_ids: list[str] = []  # Ordered list of segment IDs that make up this highlight
+    segments: list[SegmentInfo] = []  # Full segment details with timestamps and speakers
+    segment_ids: list[str] = []  # Ordered list of segment IDs for compatibility
     social_profiles: list[str] = []  # List of social profile names this highlight is tagged for
     created_at: datetime
     updated_at: datetime

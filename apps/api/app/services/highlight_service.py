@@ -167,13 +167,52 @@ class HighlightService:
                 .execute()
             )
             
-            # Group segment IDs by highlight_id
+            # Get all unique segment IDs and fetch their full data
+            all_segment_ids = list(set(hs["segment_id"] for hs in hs_result.data))
+            segments_data = {}
+            if all_segment_ids:
+                segments_result = (
+                    supabase.table("segments")
+                    .select("id, start_s, end_s, text")
+                    .in_("id", all_segment_ids)
+                    .execute()
+                )
+                segments_data = {s["id"]: s for s in segments_result.data}
+                
+                # Fetch segment speakers
+                segment_speaker_data = {}
+                ss_result = (
+                    supabase.table("segment_speakers")
+                    .select("segment_id, speaker_id")
+                    .in_("segment_id", all_segment_ids)
+                    .execute()
+                )
+                for ss in ss_result.data:
+                    if ss["segment_id"] not in segment_speaker_data:
+                        segment_speaker_data[ss["segment_id"]] = []
+                    segment_speaker_data[ss["segment_id"]].append(ss["speaker_id"])
+                
+                # Add speaker names to segments
+                for seg_id, segment in segments_data.items():
+                    speaker_ids = segment_speaker_data.get(seg_id, [])
+                    speaker_names = []
+                    for speaker_id in speaker_ids:
+                        speaker = speakers_map.get(speaker_id)
+                        if speaker:
+                            name = speaker.get("mapped_name") or speaker.get("speaker_label")
+                            speaker_names.append(name)
+                    segment["speakers"] = speaker_names
+            
+            # Group full segment details by highlight_id (preserving order)
             segments_by_highlight = {}
             for hs in hs_result.data:
                 hid = hs["highlight_id"]
                 if hid not in segments_by_highlight:
                     segments_by_highlight[hid] = []
-                segments_by_highlight[hid].append(hs["segment_id"])
+                segment = segments_data.get(hs["segment_id"])
+                if segment:
+                    segment_with_order = {**segment, "sequence_order": hs["sequence_order"]}
+                    segments_by_highlight[hid].append(segment_with_order)
             
             # Fetch prompt info for all highlights that have prompts
             prompt_ids = [h["prompt_id"] for h in highlights if h.get("prompt_id")]
@@ -222,8 +261,10 @@ class HighlightService:
                 # Add comments
                 highlight["comments"] = comments_by_highlight.get(hid, [])
                 
-                # Add segment IDs (ordered)
-                highlight["segment_ids"] = segments_by_highlight.get(hid, [])
+                # Add full segment details (ordered)
+                highlight_segments = segments_by_highlight.get(hid, [])
+                highlight["segments"] = highlight_segments  # Full segment objects with timestamps and speakers
+                highlight["segment_ids"] = [s["id"] for s in highlight_segments]  # Just IDs for compatibility
                 
                 # Add prompt info
                 prompt_id = highlight.get("prompt_id")
@@ -243,6 +284,7 @@ class HighlightService:
             for highlight in highlights:
                 highlight["speakers"] = highlight.get("speakers", [])
                 highlight["comments"] = []
+                highlight["segments"] = []
                 highlight["segment_ids"] = []
                 highlight["prompt"] = None
                 highlight["social_profiles"] = []
@@ -299,6 +341,7 @@ class HighlightService:
         
         # Add default empty values for enhanced fields
         highlight["comments"] = []
+        highlight["segments"] = []
         highlight["segment_ids"] = []
         highlight["prompt"] = None
         highlight["social_profiles"] = []
@@ -318,7 +361,7 @@ class HighlightService:
                 for c in comments_result.data
             ]
             
-            # Fetch segment IDs
+            # Fetch segments with full details
             hs_result = (
                 supabase.table("highlight_segments")
                 .select("segment_id, sequence_order")
@@ -326,7 +369,65 @@ class HighlightService:
                 .order("sequence_order")
                 .execute()
             )
-            highlight["segment_ids"] = [hs["segment_id"] for hs in hs_result.data]
+            
+            # Get full segment data
+            segment_ids = [hs["segment_id"] for hs in hs_result.data]
+            highlight["segment_ids"] = segment_ids
+            
+            if segment_ids:
+                segments_result = (
+                    supabase.table("segments")
+                    .select("id, start_s, end_s, text")
+                    .in_("id", segment_ids)
+                    .execute()
+                )
+                segments_map = {s["id"]: s for s in segments_result.data}
+                
+                # Fetch segment speakers
+                ss_result = (
+                    supabase.table("segment_speakers")
+                    .select("segment_id, speaker_id")
+                    .in_("segment_id", segment_ids)
+                    .execute()
+                )
+                segment_speaker_map = {}
+                for ss in ss_result.data:
+                    if ss["segment_id"] not in segment_speaker_map:
+                        segment_speaker_map[ss["segment_id"]] = []
+                    segment_speaker_map[ss["segment_id"]].append(ss["speaker_id"])
+                
+                # Get speakers for this episode
+                episode_id = highlight.get("episode_id")
+                speakers_map = {}
+                if episode_id:
+                    speakers_result = (
+                        supabase.table("speakers")
+                        .select("*")
+                        .eq("episode_id", episode_id)
+                        .execute()
+                    )
+                    speakers_map = {s["id"]: s for s in speakers_result.data}
+                
+                # Build segments with speaker names in order
+                highlight_segments = []
+                for hs in hs_result.data:
+                    segment = segments_map.get(hs["segment_id"])
+                    if segment:
+                        speaker_ids = segment_speaker_map.get(hs["segment_id"], [])
+                        speaker_names = []
+                        for speaker_id in speaker_ids:
+                            speaker_obj = speakers_map.get(speaker_id)
+                            if speaker_obj:
+                                name = speaker_obj.get("mapped_name") or speaker_obj.get("speaker_label")
+                                speaker_names.append(name)
+                        segment_with_order = {
+                            **segment,
+                            "speakers": speaker_names,
+                            "sequence_order": hs["sequence_order"]
+                        }
+                        highlight_segments.append(segment_with_order)
+                
+                highlight["segments"] = highlight_segments
             
             # Fetch prompt info if available
             if highlight.get("prompt_id"):
@@ -357,40 +458,11 @@ class HighlightService:
                     )
                     highlight["social_profiles"] = [p["name"] for p in profiles_result.data]
             
-            # Fetch speakers (simplified - just get from episode)
-            episode_id = highlight.get("episode_id")
-            if episode_id:
-                speakers_result = (
-                    supabase.table("speakers")
-                    .select("*")
-                    .eq("episode_id", episode_id)
-                    .execute()
-                )
-                speakers_map = {s["id"]: s for s in speakers_result.data}
-                
-                # Get segments for this highlight
-                segments_result = (
-                    supabase.table("segments")
-                    .select("id")
-                    .eq("episode_id", episode_id)
-                    .gte("end_s", highlight["start_s"])
-                    .lte("start_s", highlight["end_s"])
-                    .execute()
-                )
-                segment_ids = [s["id"] for s in segments_result.data]
-                
-                if segment_ids:
-                    ss_result = (
-                        supabase.table("segment_speakers")
-                        .select("speaker_id")
-                        .in_("segment_id", segment_ids)
-                        .execute()
-                    )
-                    speaker_ids = list(set(ss["speaker_id"] for ss in ss_result.data))
-                    highlight["speakers"] = [
-                        speakers_map[sid].get("mapped_name") or speakers_map[sid].get("speaker_label")
-                        for sid in speaker_ids if sid in speakers_map
-                    ]
+            # Extract unique speakers from segments
+            all_speakers = []
+            for segment in highlight.get("segments", []):
+                all_speakers.extend(segment.get("speakers", []))
+            highlight["speakers"] = list(set(all_speakers))  # Deduplicate
         except Exception as e:
             print(f"Error fetching enhanced data for highlight {highlight_id}: {e}")
             # Already set defaults above, so we can continue

@@ -988,29 +988,7 @@ export default function EpisodeDetailPage() {
                   <div className="p-5 border-b bg-muted/30">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-2 flex-wrap flex-1">
-                        <span className="text-sm font-mono font-semibold text-primary">
-                          {formatTimeRange(highlight.start_s, highlight.end_s)}
-                        </span>
                         <StatusBadge status={highlight.status} type="highlight" />
-                        {highlight.speakers && highlight.speakers.length > 0 ? (
-                          <div className="flex gap-1.5">
-                            {highlight.speakers.map((speaker: string, idx: number) => {
-                              const speakerIndex = speakers.findIndex(
-                                (s) => s.mapped_name === speaker || s.speaker_label === speaker
-                              );
-                              return (
-                                <Badge
-                                  key={`${speaker}-${idx}`}
-                                  variant="default"
-                                  className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
-                                >
-                                <Users className="h-3 w-3 mr-1" />
-                                {speaker}
-                              </Badge>
-                              );
-                            })}
-                          </div>
-                        ) : null}
                       </div>
                       <Button
                         variant="ghost"
@@ -1025,6 +1003,44 @@ export default function EpisodeDetailPage() {
                         Edit
                       </Button>
                     </div>
+                    
+                    {/* Segments with Individual Timestamps */}
+                    {highlight.segments && highlight.segments.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground mb-2">Segments:</div>
+                        {highlight.segments.map((segment: any, segIdx: number) => (
+                          <div key={segment.id} className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                              <Badge variant="secondary" className="text-xs font-mono shrink-0">
+                                #{segIdx + 1}
+                              </Badge>
+                              <span className="text-xs font-mono font-semibold text-primary shrink-0">
+                                {formatTimeRange(segment.start_s, segment.end_s)}
+                              </span>
+                              {segment.speakers && segment.speakers.length > 0 && (
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {segment.speakers.map((speaker: string, idx: number) => {
+                                    const speakerIndex = speakers.findIndex(
+                                      (s) => s.mapped_name === speaker || s.speaker_label === speaker
+                                    );
+                                    return (
+                                      <Badge
+                                        key={`${speaker}-${idx}`}
+                                        variant="default"
+                                        className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
+                                      >
+                                        <Users className="h-3 w-3 mr-1" />
+                                        {speaker}
+                                      </Badge>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     
                     {/* Prompt Info */}
                     {highlight.prompt && (
