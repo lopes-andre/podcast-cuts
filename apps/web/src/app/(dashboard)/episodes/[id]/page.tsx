@@ -45,6 +45,9 @@ export default function EpisodeDetailPage() {
   // Highlight filters
   const [statusFilters, setStatusFilters] = useState<string[]>(["pending", "approved", "discarded"]);
   const [speakerFilters, setSpeakerFilters] = useState<string[]>([]);
+  const [hasRawLink, setHasRawLink] = useState<boolean | null>(null); // null = both, true = yes, false = no
+  const [hasEditedLink, setHasEditedLink] = useState<boolean | null>(null);
+  const [hasComments, setHasComments] = useState<boolean | null>(null);
   
   // Highlight editor
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(null);
@@ -320,6 +323,24 @@ export default function EpisodeDetailPage() {
       }
     }
     
+    // Filter by raw link
+    if (hasRawLink !== null) {
+      const hasLink = !!highlight.raw_video_link;
+      if (hasLink !== hasRawLink) return false;
+    }
+    
+    // Filter by edited link
+    if (hasEditedLink !== null) {
+      const hasLink = !!highlight.edited_video_link;
+      if (hasLink !== hasEditedLink) return false;
+    }
+    
+    // Filter by comments
+    if (hasComments !== null) {
+      const hasCommentData = highlight.comments && highlight.comments.length > 0;
+      if (hasCommentData !== hasComments) return false;
+    }
+    
     return true;
   });
 
@@ -333,6 +354,35 @@ export default function EpisodeDetailPage() {
     setSpeakerFilters((prev) =>
       prev.includes(speaker) ? prev.filter((s) => s !== speaker) : [...prev, speaker]
     );
+  };
+  
+  // Check if filters are in default state
+  const isDefaultFilterState = () => {
+    const defaultStatuses = ["pending", "approved", "discarded"];
+    const allSpeakers = Array.from(
+      new Set(highlights.flatMap((h) => h.speakers || []))
+    );
+    
+    return (
+      statusFilters.length === defaultStatuses.length &&
+      statusFilters.every(s => defaultStatuses.includes(s)) &&
+      speakerFilters.length === allSpeakers.length &&
+      hasRawLink === null &&
+      hasEditedLink === null &&
+      hasComments === null
+    );
+  };
+  
+  // Reset all filters to default
+  const resetAllFilters = () => {
+    setStatusFilters(["pending", "approved", "discarded"]);
+    const allSpeakers = Array.from(
+      new Set(highlights.flatMap((h) => h.speakers || []))
+    );
+    setSpeakerFilters(allSpeakers);
+    setHasRawLink(null);
+    setHasEditedLink(null);
+    setHasComments(null);
   };
 
   // Get unique speakers from all highlights
@@ -368,6 +418,14 @@ export default function EpisodeDetailPage() {
       if (highlightsRes.ok) {
         const highlightsData = await highlightsRes.json();
         setHighlights(highlightsData);
+        
+        // Initialize speaker filters with all unique speakers (only once on first load)
+        if (speakerFilters.length === 0) {
+          const uniqueSpeakers = Array.from(
+            new Set(highlightsData.flatMap((h: any) => h.speakers || []))
+          );
+          setSpeakerFilters(uniqueSpeakers);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch episode data:", error);
@@ -847,27 +905,28 @@ export default function EpisodeDetailPage() {
             <CardDescription>AI-detected highlight moments with speaker information</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Unified Filters - Clean Horizontal Layout */}
-            <div className="mb-6 p-6 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur">
-              <div className="grid md:grid-cols-2 gap-6">
+            {/* Compact Unified Filters */}
+            <div className="mb-6 p-4 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur space-y-4">
+              {/* Header with Clear All button */}
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Filters</Label>
+                {!isDefaultFilterState() && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetAllFilters}
+                    className="h-7 px-3 text-xs"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+              
+              {/* All Filters in Compact Grid */}
+              <div className="space-y-3">
                 {/* Status Filters */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-primary"></span>
-                      Status
-                    </Label>
-                    {statusFilters.length < 3 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setStatusFilters(["pending", "approved", "discarded"])}
-                        className="h-6 px-2 text-xs"
-                      >
-                        Select All
-                      </Button>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
                   <div className="flex gap-2 flex-wrap">
                     {[
                       { value: "pending", gradient: "from-yellow-500 to-amber-500", label: "Pending" },
@@ -891,59 +950,18 @@ export default function EpisodeDetailPage() {
                       );
                     })}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    {statusFilters.length} of 3 selected
-                  </div>
                 </div>
 
                 {/* Speaker Filters */}
                 {uniqueHighlightSpeakers.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <Label className="text-sm font-semibold flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-primary"></span>
-                        Speakers
-                      </Label>
-                      <div className="flex gap-2">
-                        {speakerFilters.length === 0 ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSpeakerFilters(uniqueHighlightSpeakers)}
-                            className="h-6 px-2 text-xs"
-                          >
-                            Select All
-                          </Button>
-                        ) : speakerFilters.length < uniqueHighlightSpeakers.length ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSpeakerFilters(uniqueHighlightSpeakers)}
-                            className="h-6 px-2 text-xs"
-                          >
-                            Select All
-                          </Button>
-                        ) : null}
-                        {speakerFilters.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSpeakerFilters([])}
-                            className="h-6 px-2 text-xs"
-                          >
-                            Clear
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Speakers</Label>
                     <div className="flex gap-2 flex-wrap">
                       {uniqueHighlightSpeakers.map((speaker, idx) => {
                         const speakerIndex = speakers.findIndex(
                           (s) => s.mapped_name === speaker || s.speaker_label === speaker
                         );
                         const isSelected = speakerFilters.includes(speaker);
-                        // When nothing is selected, treat as "show all" but don't show checkmarks
-                        const showInResults = speakerFilters.length === 0 || isSelected;
                         return (
                           <Badge
                             key={speaker}
@@ -960,14 +978,92 @@ export default function EpisodeDetailPage() {
                         );
                       })}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-2">
-                      {speakerFilters.length === 0 
-                        ? `Showing all ${uniqueHighlightSpeakers.length} speakers` 
-                        : `${speakerFilters.length} of ${uniqueHighlightSpeakers.length} selected`
-                      }
-                    </div>
                   </div>
                 )}
+                
+                {/* Content Filters (Raw Link, Edited Link, Comments) */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Content</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {/* Raw Link Filter */}
+                    <Badge
+                      onClick={() => setHasRawLink(hasRawLink === true ? null : true)}
+                      className={`cursor-pointer transition-all select-none ${
+                        hasRawLink === true
+                          ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg hover:scale-105"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <span className="mr-1.5">{hasRawLink === true ? "✓" : "○"}</span>
+                      Has Raw Link
+                    </Badge>
+                    
+                    {/* No Raw Link Filter */}
+                    <Badge
+                      onClick={() => setHasRawLink(hasRawLink === false ? null : false)}
+                      className={`cursor-pointer transition-all select-none ${
+                        hasRawLink === false
+                          ? "bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg hover:scale-105"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <span className="mr-1.5">{hasRawLink === false ? "✓" : "○"}</span>
+                      No Raw Link
+                    </Badge>
+                    
+                    {/* Edited Link Filter */}
+                    <Badge
+                      onClick={() => setHasEditedLink(hasEditedLink === true ? null : true)}
+                      className={`cursor-pointer transition-all select-none ${
+                        hasEditedLink === true
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg hover:scale-105"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <span className="mr-1.5">{hasEditedLink === true ? "✓" : "○"}</span>
+                      Has Edited Link
+                    </Badge>
+                    
+                    {/* No Edited Link Filter */}
+                    <Badge
+                      onClick={() => setHasEditedLink(hasEditedLink === false ? null : false)}
+                      className={`cursor-pointer transition-all select-none ${
+                        hasEditedLink === false
+                          ? "bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg hover:scale-105"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <span className="mr-1.5">{hasEditedLink === false ? "✓" : "○"}</span>
+                      No Edited Link
+                    </Badge>
+                    
+                    {/* Has Comments Filter */}
+                    <Badge
+                      onClick={() => setHasComments(hasComments === true ? null : true)}
+                      className={`cursor-pointer transition-all select-none ${
+                        hasComments === true
+                          ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg hover:scale-105"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <span className="mr-1.5">{hasComments === true ? "✓" : "○"}</span>
+                      Has Comments
+                    </Badge>
+                    
+                    {/* No Comments Filter */}
+                    <Badge
+                      onClick={() => setHasComments(hasComments === false ? null : false)}
+                      className={`cursor-pointer transition-all select-none ${
+                        hasComments === false
+                          ? "bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg hover:scale-105"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <span className="mr-1.5">{hasComments === false ? "✓" : "○"}</span>
+                      No Comments
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </div>
 
