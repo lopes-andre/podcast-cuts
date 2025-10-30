@@ -1154,11 +1154,6 @@ export default function EpisodeDetailPage() {
                     )}
                   </div>
 
-                  {/* Transcript */}
-                  <div className="p-5">
-                    <p className="text-sm leading-relaxed text-foreground/90">{highlight.transcript}</p>
-                  </div>
-
                   {/* Metadata Footer */}
                   <div className="px-5 pb-5 space-y-3">
                     {/* Video Links */}
