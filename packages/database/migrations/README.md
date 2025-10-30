@@ -49,6 +49,7 @@ supabase db push
 3. `003_rename_used_to_approved.sql` - Updates highlight status enum from "used" to "approved"
 4. `004_add_description_and_comments.sql` - Adds description field and episode_comments table
 5. `005_add_thumbnail_url.sql` - Adds thumbnail_url field for YouTube video thumbnails
+6. `006_highlight_enhancements.sql` - Adds highlight comments, segment relationships, and video links
 
 ## Database Cleanup (⚠️ Development Only)
 
