@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/StatusBadge";
+import { HighlightEditor } from "@/components/HighlightEditor";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,10 @@ export default function EpisodeDetailPage() {
   // Highlight filters
   const [statusFilters, setStatusFilters] = useState<string[]>(["pending", "approved", "discarded"]);
   const [speakerFilters, setSpeakerFilters] = useState<string[]>([]);
+  
+  // Highlight editor
+  const [editingHighlightId, setEditingHighlightId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     fetchEpisodeData();
@@ -970,7 +975,10 @@ export default function EpisodeDetailPage() {
                         variant="ghost"
                         size="sm"
                         className="gap-2"
-                        onClick={() => {/* TODO: Open editor */}}
+                        onClick={() => {
+                          setEditingHighlightId(highlight.id);
+                          setEditorOpen(true);
+                        }}
                       >
                         <Edit className="h-3.5 w-3.5" />
                         Edit
@@ -1093,6 +1101,24 @@ export default function EpisodeDetailPage() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Highlight Editor Dialog */}
+      {editingHighlightId && (
+        <HighlightEditor
+          highlight={highlights.find(h => h.id === editingHighlightId)}
+          episodeId={episodeId}
+          allSegments={segments}
+          open={editorOpen}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditingHighlightId(null);
+          }}
+          onSave={() => {
+            // Refresh all data after save
+            fetchEpisodeData();
+          }}
+        />
       )}
     </div>
   );
