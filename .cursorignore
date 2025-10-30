@@ -1,0 +1,11 @@
+.env
+.env.*
+**/node_modules/
+**/.next/
+**/dist/
+**/.venv/
+data/raw/**
+data/tmp/**
+cookies.txt
+*.mp4
+*.wav

@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database (Supabase local development)
+  postgres:
+    image: supabase/postgres:15.1.0.117
+    container_name: podcast-highlighter-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: podcast_highlighter
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI backend
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+      target: development
+    container_name: podcast-highlighter-api
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - ENVIRONMENT=development
+      - CORS_ORIGINS=http://localhost:3000
+    volumes:
+      - ../apps/api:/app
+      - api_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Next.js frontend
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+      target: development
+    container_name: podcast-highlighter-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ../apps/web:/app/apps/web
+      - ../packages:/app/packages
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  api_models:
+

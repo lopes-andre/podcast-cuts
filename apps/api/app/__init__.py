@@ -1,0 +1,2 @@
+"""Podcast Highlighter API application."""
+
