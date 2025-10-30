@@ -257,7 +257,7 @@ class HighlightService:
     async def update_highlight(
         self, highlight_id: str, data: dict[str, Any]
     ) -> Optional[dict[str, Any]]:
-        """Update highlight metadata."""
+        """Update highlight metadata and return enhanced data."""
         # Handle profile_ids separately if provided
         profile_ids = data.pop("profile_ids", None)
         
@@ -268,6 +268,9 @@ class HighlightService:
             .eq("id", highlight_id)
             .execute()
         )
+        
+        if not result.data:
+            return None
         
         # Update profiles if provided
         if profile_ids is not None:
@@ -282,7 +285,117 @@ class HighlightService:
                 ]
                 supabase.table("highlight_profiles").insert(associations).execute()
         
-        return result.data[0] if result.data else None
+        # Fetch the full enhanced highlight data
+        # Use list_highlights to get all the enhanced data (comments, segments, etc.)
+        from app.models.highlights import HighlightFilters
+        filters = HighlightFilters(limit=1, offset=0)
+        
+        # Get the updated highlight with all enhanced data
+        enhanced_result = supabase.table("highlights").select("*").eq("id", highlight_id).execute()
+        if not enhanced_result.data:
+            return None
+        
+        highlight = enhanced_result.data[0]
+        
+        # Add default empty values for enhanced fields
+        highlight["comments"] = []
+        highlight["segment_ids"] = []
+        highlight["prompt"] = None
+        highlight["social_profiles"] = []
+        highlight["speakers"] = []
+        
+        try:
+            # Fetch comments
+            comments_result = (
+                supabase.table("highlight_comments")
+                .select("*")
+                .eq("highlight_id", highlight_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            highlight["comments"] = [
+                {"id": c["id"], "content": c["content"], "created_at": c["created_at"]}
+                for c in comments_result.data
+            ]
+            
+            # Fetch segment IDs
+            hs_result = (
+                supabase.table("highlight_segments")
+                .select("segment_id, sequence_order")
+                .eq("highlight_id", highlight_id)
+                .order("sequence_order")
+                .execute()
+            )
+            highlight["segment_ids"] = [hs["segment_id"] for hs in hs_result.data]
+            
+            # Fetch prompt info if available
+            if highlight.get("prompt_id"):
+                prompt_result = (
+                    supabase.table("prompts")
+                    .select("id, name, version")
+                    .eq("id", highlight["prompt_id"])
+                    .execute()
+                )
+                if prompt_result.data:
+                    highlight["prompt"] = prompt_result.data[0]
+            
+            # Fetch social profiles
+            hp_result = (
+                supabase.table("highlight_profiles")
+                .select("profile_id")
+                .eq("highlight_id", highlight_id)
+                .execute()
+            )
+            if hp_result.data:
+                profile_ids_list = [hp["profile_id"] for hp in hp_result.data]
+                if profile_ids_list:
+                    profiles_result = (
+                        supabase.table("social_profiles")
+                        .select("id, name")
+                        .in_("id", profile_ids_list)
+                        .execute()
+                    )
+                    highlight["social_profiles"] = [p["name"] for p in profiles_result.data]
+            
+            # Fetch speakers (simplified - just get from episode)
+            episode_id = highlight.get("episode_id")
+            if episode_id:
+                speakers_result = (
+                    supabase.table("speakers")
+                    .select("*")
+                    .eq("episode_id", episode_id)
+                    .execute()
+                )
+                speakers_map = {s["id"]: s for s in speakers_result.data}
+                
+                # Get segments for this highlight
+                segments_result = (
+                    supabase.table("segments")
+                    .select("id")
+                    .eq("episode_id", episode_id)
+                    .gte("end_s", highlight["start_s"])
+                    .lte("start_s", highlight["end_s"])
+                    .execute()
+                )
+                segment_ids = [s["id"] for s in segments_result.data]
+                
+                if segment_ids:
+                    ss_result = (
+                        supabase.table("segment_speakers")
+                        .select("speaker_id")
+                        .in_("segment_id", segment_ids)
+                        .execute()
+                    )
+                    speaker_ids = list(set(ss["speaker_id"] for ss in ss_result.data))
+                    highlight["speakers"] = [
+                        speakers_map[sid].get("mapped_name") or speakers_map[sid].get("speaker_label")
+                        for sid in speaker_ids if sid in speakers_map
+                    ]
+        except Exception as e:
+            print(f"Error fetching enhanced data for highlight {highlight_id}: {e}")
+            # Already set defaults above, so we can continue
+        
+        return highlight
 
     async def delete_highlight(self, highlight_id: str) -> bool:
         """Delete a highlight."""
