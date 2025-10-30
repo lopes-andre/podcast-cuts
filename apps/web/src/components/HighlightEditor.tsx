@@ -279,36 +279,11 @@ export function HighlightEditor({
           {/* Comments Tab */}
           {activeTab === "comments" && (
             <div className="space-y-4">
-              {/* Existing Comments */}
-              {comments.length > 0 ? (
-                <div className="space-y-3">
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="p-3 border rounded-lg bg-muted/30">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm flex-1">{comment.content}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteComment(comment.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(comment.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No comments yet</p>
-              )}
-
               {/* Add New Comment */}
-              <div className="pt-4 border-t">
-                <Label htmlFor="new_comment" className="flex items-center gap-2">
+              <div className="pb-4 border-b">
+                <Label htmlFor="new_comment" className="flex items-center gap-2 mb-2">
                   <MessageSquare className="h-4 w-4" />
-                  Add Comment
+                  Add New Comment
                 </Label>
                 <Textarea
                   id="new_comment"
@@ -318,6 +293,34 @@ export function HighlightEditor({
                   className="mt-2"
                   rows={3}
                 />
+              </div>
+
+              {/* Comment History */}
+              <div>
+                <Label className="text-sm font-medium mb-3 block">Comment History</Label>
+                {comments.length > 0 ? (
+                  <div className="space-y-3">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm flex-1">{comment.content}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteComment(comment.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(comment.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No comments yet</p>
+                )}
               </div>
             </div>
           )}

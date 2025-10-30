@@ -53,6 +53,8 @@ export default function EpisodeDetailPage() {
   // Highlight comments modal
   const [showHighlightComments, setShowHighlightComments] = useState(false);
   const [selectedHighlightForComments, setSelectedHighlightForComments] = useState<any>(null);
+  const [newHighlightComment, setNewHighlightComment] = useState("");
+  const [addingComment, setAddingComment] = useState(false);
 
   useEffect(() => {
     fetchEpisodeData();
@@ -264,6 +266,41 @@ export default function EpisodeDetailPage() {
       fetchEpisodeComments();
     }
     setShowEpisodeComments(!showEpisodeComments);
+  };
+
+  // Add comment to highlight from modal
+  const handleAddHighlightComment = async () => {
+    if (!newHighlightComment.trim() || !selectedHighlightForComments) return;
+
+    setAddingComment(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/highlights/${selectedHighlightForComments.id}/comments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: newHighlightComment }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to add comment");
+
+      // Refresh highlights to get updated comments
+      await fetchEpisodeData();
+      
+      // Update the selected highlight with new data
+      const updatedHighlight = highlights.find(h => h.id === selectedHighlightForComments.id);
+      if (updatedHighlight) {
+        setSelectedHighlightForComments(updatedHighlight);
+      }
+      
+      setNewHighlightComment("");
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+      alert("Failed to add comment");
+    } finally {
+      setAddingComment(false);
+    }
   };
 
   // Filter highlights based on selected filters
@@ -1139,7 +1176,16 @@ export default function EpisodeDetailPage() {
       )}
 
       {/* Highlight Comments Modal */}
-      <Dialog open={showHighlightComments} onOpenChange={setShowHighlightComments}>
+      <Dialog 
+        open={showHighlightComments} 
+        onOpenChange={(open) => {
+          setShowHighlightComments(open);
+          if (!open) {
+            setSelectedHighlightForComments(null);
+            setNewHighlightComment("");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1150,37 +1196,68 @@ export default function EpisodeDetailPage() {
               All comments for this highlight ({selectedHighlightForComments?.comments?.length || 0} total)
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto py-4">
-            {selectedHighlightForComments?.comments && selectedHighlightForComments.comments.length > 0 ? (
-              <div className="space-y-4">
-                {selectedHighlightForComments.comments.map((comment: any, idx: number) => (
-                  <div key={comment.id || idx} className="p-4 border rounded-lg bg-muted/30">
-                    <p className="text-sm mb-2">{comment.content}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(comment.created_at).toLocaleString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric',
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </span>
-                  </div>
-                ))}
+          
+          <div className="space-y-4">
+            {/* Add New Comment Section */}
+            <div className="border-b pb-4">
+              <Label htmlFor="new-highlight-comment" className="text-sm font-medium mb-2 block">
+                Add New Comment
+              </Label>
+              <div className="flex gap-2">
+                <textarea
+                  id="new-highlight-comment"
+                  value={newHighlightComment}
+                  onChange={(e) => setNewHighlightComment(e.target.value)}
+                  placeholder="Add a note or comment..."
+                  className="flex-1 min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  rows={3}
+                />
+                <Button 
+                  onClick={handleAddHighlightComment}
+                  disabled={addingComment || !newHighlightComment.trim()}
+                  className="self-end"
+                >
+                  {addingComment ? "Adding..." : "Add"}
+                </Button>
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No comments yet</p>
-              </div>
-            )}
+            </div>
+
+            {/* Existing Comments */}
+            <div className="max-h-[50vh] overflow-y-auto">
+              <Label className="text-sm font-medium mb-3 block">Comment History</Label>
+              {selectedHighlightForComments?.comments && selectedHighlightForComments.comments.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedHighlightForComments.comments.map((comment: any, idx: number) => (
+                    <div key={comment.id || idx} className="p-4 border rounded-lg bg-muted/30">
+                      <p className="text-sm mb-2">{comment.content}</p>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(comment.created_at).toLocaleString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric',
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No comments yet</p>
+                </div>
+              )}
+            </div>
           </div>
+
           <DialogFooter>
             <Button 
               variant="outline" 
               onClick={() => {
                 setShowHighlightComments(false);
                 setSelectedHighlightForComments(null);
+                setNewHighlightComment("");
               }}
             >
               Close
