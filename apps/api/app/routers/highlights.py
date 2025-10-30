@@ -50,6 +50,17 @@ async def update_highlight(highlight_id: str, data: HighlightUpdate) -> Highligh
     return HighlightResponse(**highlight)
 
 
+@router.patch("/{highlight_id}", response_model=HighlightResponse)
+async def patch_highlight(highlight_id: str, data: HighlightUpdate) -> HighlightResponse:
+    """Partially update highlight metadata and status (same as PUT)."""
+    highlight = await highlight_service.update_highlight(
+        highlight_id, data.model_dump(exclude_unset=True)
+    )
+    if not highlight:
+        raise HTTPException(status_code=404, detail="Highlight not found")
+    return HighlightResponse(**highlight)
+
+
 @router.delete("/{highlight_id}")
 async def delete_highlight(highlight_id: str) -> dict[str, str]:
     """Delete a highlight."""
