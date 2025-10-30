@@ -1242,13 +1242,6 @@ export default function EpisodeDetailPage() {
                         </div>
                       </div>
                     )}
-
-                    {/* Segment Count */}
-                    {highlight.segment_ids && highlight.segment_ids.length > 0 && (
-                      <div className="text-xs text-muted-foreground italic">
-                        Composed of {highlight.segment_ids.length} segment{highlight.segment_ids.length > 1 ? 's' : ''}
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
