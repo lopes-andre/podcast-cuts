@@ -19,7 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ArrowLeft, ExternalLink, Sparkles, Users, FileText, Edit, Trash2, Calendar, Clock, Video, MessageSquare } from "lucide-react";
-import { formatTimestamp } from "@/lib/utils";
+import { formatTimestamp, formatTimeRange } from "@/lib/utils";
 
 export default function EpisodeDetailPage() {
   const params = useParams();
