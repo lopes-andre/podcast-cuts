@@ -18,8 +18,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ExternalLink, Sparkles, Users, FileText, Edit } from "lucide-react";
-import { formatTimeRange } from "@/lib/utils";
+import { ArrowLeft, ExternalLink, Sparkles, Users, FileText, Edit, Trash2, Calendar, Clock, Video, MessageSquare } from "lucide-react";
+import { formatTimestamp } from "@/lib/utils";
 
 export default function EpisodeDetailPage() {
   const params = useParams();
@@ -35,6 +35,11 @@ export default function EpisodeDetailPage() {
   const [openDialogId, setOpenDialogId] = useState<string | null>(null);
   const [speakerNameInput, setSpeakerNameInput] = useState<Record<string, string>>({});
   const [updating, setUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showEpisodeComments, setShowEpisodeComments] = useState(false);
+  const [episodeComments, setEpisodeComments] = useState<any[]>([]);
+  const [newEpisodeComment, setNewEpisodeComment] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
   
   // Highlight filters
   const [statusFilters, setStatusFilters] = useState<string[]>(["pending", "approved", "discarded"]);
@@ -153,6 +158,105 @@ export default function EpisodeDetailPage() {
     return colors[index % colors.length];
   };
 
+  // Handle episode deletion
+  const handleDeleteEpisode = async () => {
+    if (!confirm("Are you sure you want to delete this episode? This will delete all associated segments, speakers, and highlights. This action cannot be undone.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}`,
+        { method: "DELETE" }
+      );
+
+      if (response.ok) {
+        router.push("/episodes");
+      } else {
+        alert("Failed to delete episode");
+      }
+    } catch (error) {
+      console.error("Error deleting episode:", error);
+      alert("Failed to delete episode");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Fetch episode comments
+  const fetchEpisodeComments = async () => {
+    setLoadingComments(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}/comments`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setEpisodeComments(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch episode comments:", error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  // Add episode comment
+  const addEpisodeComment = async () => {
+    if (!newEpisodeComment.trim()) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/episodes/${episodeId}/comments`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: newEpisodeComment }),
+        }
+      );
+
+      if (response.ok) {
+        setNewEpisodeComment("");
+        fetchEpisodeComments();
+      } else {
+        alert("Failed to add comment");
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      alert("Failed to add comment");
+    }
+  };
+
+  // Delete episode comment
+  const deleteEpisodeComment = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/episodes/comments/${commentId}`,
+        { method: "DELETE" }
+      );
+
+      if (response.ok) {
+        fetchEpisodeComments();
+      } else {
+        alert("Failed to delete comment");
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      alert("Failed to delete comment");
+    }
+  };
+
+  // Toggle episode comments dialog
+  const toggleEpisodeComments = () => {
+    if (!showEpisodeComments) {
+      fetchEpisodeComments();
+    }
+    setShowEpisodeComments(!showEpisodeComments);
+  };
+
   // Filter highlights based on selected filters
   const filteredHighlights = highlights.filter((highlight) => {
     // Filter by status
@@ -247,46 +351,241 @@ export default function EpisodeDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/episodes">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold">{episode.title}</h1>
-            <StatusBadge status={episode.status} type="episode" />
-            {updating && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
-                <span>Updating...</span>
+    <div className="space-y-8">
+      {/* Modern Episode Header */}
+      <Card className="border-primary/20 overflow-hidden">
+        <CardContent className="p-8">
+          {/* Top Navigation Bar */}
+          <div className="flex items-center justify-between mb-6">
+            <Link href="/episodes">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Episodes
+              </Button>
+            </Link>
+            <div className="flex items-center gap-2">
+              {episode.status === "pending" && (
+                <Button onClick={seedMockData} disabled={seeding} variant="outline" size="sm">
+                  {seeding ? "Seeding..." : "Seed Mock Data"}
+                </Button>
+              )}
+              <Link href={`/episodes/${episodeId}/edit`}>
+                <Button variant="secondary" size="sm" className="gap-2">
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleDeleteEpisode}
+                disabled={isDeleting}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-8">
+            {/* Thumbnail */}
+            {episode.thumbnail_url ? (
+              <div className="flex-shrink-0">
+                <div className="relative w-64 h-36 rounded-xl overflow-hidden border border-primary/20 shadow-lg">
+                  <img
+                    src={episode.thumbnail_url}
+                    alt={episode.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex-shrink-0 w-64 h-36 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-primary/10 flex items-center justify-center">
+                <Video className="h-16 w-16 text-muted-foreground/30" />
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              {/* Title and Status */}
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h1 className="text-3xl font-bold mb-2 leading-tight">{episode.title}</h1>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <StatusBadge status={episode.status} type="episode" />
+                    {updating && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-primary"></div>
+                        <span>Updating speakers...</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Metadata Grid */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 mb-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground/70" />
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span className="font-medium">
+                    {episode.duration_seconds > 0 
+                      ? formatTimestamp(episode.duration_seconds)
+                      : <span className="text-muted-foreground/50">—</span>
+                    }
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground/70" />
+                  <span className="text-muted-foreground">Created:</span>
+                  <span className="font-medium">
+                    {new Date(episode.created_at).toLocaleDateString('en-US', { 
+                      month: 'short', day: 'numeric', year: 'numeric' 
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground/70" />
+                  <span className="text-muted-foreground">Recorded:</span>
+                  <span className="font-medium">
+                    {episode.recorded_at 
+                      ? new Date(episode.recorded_at).toLocaleDateString('en-US', { 
+                          month: 'short', day: 'numeric', year: 'numeric' 
+                        })
+                      : <span className="text-muted-foreground/50">—</span>
+                    }
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground/70" />
+                  <span className="text-muted-foreground">Published:</span>
+                  <span className="font-medium">
+                    {episode.published_at 
+                      ? new Date(episode.published_at).toLocaleDateString('en-US', { 
+                          month: 'short', day: 'numeric', year: 'numeric' 
+                        })
+                      : <span className="text-muted-foreground/50">—</span>
+                    }
+                  </span>
+                </div>
+              </div>
+
+              {/* Description */}
+              {episode.description && (
+                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-4">
+                  {episode.description}
+                </p>
+              )}
+
+              {/* Links and Actions */}
+              <div className="flex items-center gap-4 pt-3 border-t border-border/50">
+                <a
+                  href={episode.youtube_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  YouTube
+                </a>
+                {episode.raw_video_link ? (
+                  <a
+                    href={episode.raw_video_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline transition-colors"
+                  >
+                    <Video className="h-4 w-4" />
+                    Raw Video
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground/40 cursor-not-allowed">
+                    <Video className="h-4 w-4" />
+                    Raw Video
+                  </span>
+                )}
+                <button
+                  onClick={toggleEpisodeComments}
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline transition-colors"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Comments ({episode.comments_count || 0})
+                </button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Episode Comments Dialog */}
+      <Dialog open={showEpisodeComments} onOpenChange={setShowEpisodeComments}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Episode Comments</DialogTitle>
+            <DialogDescription>
+              Add and manage comments for this episode.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add a comment..."
+                value={newEpisodeComment}
+                onChange={(e) => setNewEpisodeComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    addEpisodeComment();
+                  }
+                }}
+              />
+              <Button onClick={addEpisodeComment} disabled={!newEpisodeComment.trim()}>
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {loadingComments ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-muted-foreground">Loading comments...</p>
+              </div>
+            ) : episodeComments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <MessageSquare className="h-12 w-12 text-muted-foreground mb-2 opacity-50" />
+                <p className="text-muted-foreground text-center">
+                  No comments yet. Be the first to add one!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {episodeComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="p-4 border rounded-lg bg-gradient-to-br from-card to-card/50 hover:from-accent/20 hover:to-accent/10 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-sm">{comment.content}</p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {new Date(comment.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteEpisodeComment(comment.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Duration: {formatTimeRange(0, episode.duration_seconds)}</span>
-            <span>•</span>
-            <span>Created {new Date(episode.created_at).toLocaleDateString()}</span>
-            <a
-              href={episode.youtube_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-foreground"
-            >
-              <ExternalLink className="h-3 w-3" />
-              YouTube
-            </a>
-          </div>
-        </div>
-        {episode.status === "pending" && (
-          <Button onClick={seedMockData} disabled={seeding}>
-            {seeding ? "Seeding..." : "Seed Mock Data"}
-          </Button>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -502,75 +801,111 @@ export default function EpisodeDetailPage() {
             <CardDescription>AI-detected highlight moments with speaker information</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Filters */}
-            <div className="mb-6 space-y-4 p-6 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur">
+            {/* Unified Filters - Horizontal Layout */}
+            <div className="mb-6 p-6 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur space-y-4">
+              {/* Status Filters */}
               <div>
-                <Label className="text-sm font-semibold mb-3 block flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-primary"></span>
-                  Filter by Status
-                </Label>
-                <div className="flex gap-2">
-                  {[
-                    { value: "pending", gradient: "from-yellow-500 to-amber-500" },
-                    { value: "approved", gradient: "from-green-500 to-emerald-500" },
-                    { value: "discarded", gradient: "from-red-500 to-rose-500" },
-                  ].map(({ value, gradient }) => (
-                    <Badge
-                      key={value}
-                      onClick={() => toggleStatusFilter(value)}
-                      className={`cursor-pointer transition-all capitalize ${
-                        statusFilters.includes(value)
-                          ? `bg-gradient-to-r ${gradient} text-white shadow-lg hover:scale-105`
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-primary"></span>
+                    Filter by Status
+                  </Label>
+                  {statusFilters.length < 3 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setStatusFilters(["pending", "approved", "discarded"])}
+                      className="h-6 px-2 text-xs"
                     >
-                      {value}
-                    </Badge>
-                  ))}
+                      Select All
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { value: "pending", gradient: "from-yellow-500 to-amber-500", label: "Pending" },
+                    { value: "approved", gradient: "from-green-500 to-emerald-500", label: "Approved" },
+                    { value: "discarded", gradient: "from-red-500 to-rose-500", label: "Discarded" },
+                  ].map(({ value, gradient, label }) => {
+                    const isSelected = statusFilters.includes(value);
+                    return (
+                      <Badge
+                        key={value}
+                        onClick={() => toggleStatusFilter(value)}
+                        className={`cursor-pointer transition-all select-none ${
+                          isSelected
+                            ? `bg-gradient-to-r ${gradient} text-white shadow-lg hover:scale-105`
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        <span className="mr-1.5">{isSelected ? "✓" : "○"}</span>
+                        {label}
+                      </Badge>
+                    );
+                  })}
+                  <span className="text-xs text-muted-foreground self-center ml-2">
+                    ({statusFilters.length} selected)
+                  </span>
                 </div>
               </div>
 
+              {/* Speaker Filters */}
               {uniqueHighlightSpeakers.length > 0 && (
                 <div>
-                  <Label className="text-sm font-semibold mb-3 block flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-primary"></span>
-                    Filter by Speaker
-                    {speakerFilters.length > 0 && (
-                      <span className="text-xs font-normal text-muted-foreground">
-                        ({speakerFilters.length} selected)
-                      </span>
-                    )}
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-primary"></span>
+                      Filter by Speaker
+                    </Label>
+                    <div className="flex gap-2">
+                      {speakerFilters.length < uniqueHighlightSpeakers.length && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSpeakerFilters(uniqueHighlightSpeakers)}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Select All
+                        </Button>
+                      )}
+                      {speakerFilters.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSpeakerFilters([])}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
                     {uniqueHighlightSpeakers.map((speaker, idx) => {
                       const speakerIndex = speakers.findIndex(
                         (s) => s.mapped_name === speaker || s.speaker_label === speaker
                       );
-                      const isActive = speakerFilters.includes(speaker) || speakerFilters.length === 0;
+                      const isSelected = speakerFilters.includes(speaker);
+                      const showAllIfEmpty = speakerFilters.length === 0;
+                      const isActive = isSelected || showAllIfEmpty;
                       return (
                         <Badge
                           key={speaker}
                           onClick={() => toggleSpeakerFilter(speaker)}
-                          className={`cursor-pointer transition-all ${
+                          className={`cursor-pointer transition-all select-none ${
                             isActive
                               ? `bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)} text-white shadow-lg hover:scale-105`
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                         >
+                          <span className="mr-1.5">{isSelected ? "✓" : (showAllIfEmpty ? "✓" : "○")}</span>
                           {speaker}
                         </Badge>
                       );
                     })}
-                    {speakerFilters.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSpeakerFilters([])}
-                        className="h-6 px-2 text-xs"
-                      >
-                        Clear
-                      </Button>
-                    )}
+                    <span className="text-xs text-muted-foreground self-center ml-2">
+                      ({speakerFilters.length === 0 ? "all" : speakerFilters.length} selected)
+                    </span>
                   </div>
                 </div>
               )}

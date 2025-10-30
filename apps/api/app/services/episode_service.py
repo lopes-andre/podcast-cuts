@@ -58,6 +58,7 @@ class EpisodeService:
             "title": metadata['title'],
             "duration_seconds": metadata['duration_seconds'],
             "description": metadata['description'],
+            "thumbnail_url": metadata.get('thumbnail_url'),
             "status": "pending",
         }
         result = supabase.table("episodes").insert(data).execute()
@@ -83,11 +84,13 @@ class EpisodeService:
         for episode in episodes:
             comments_result = (
                 supabase.table("episode_comments")
-                .select("id", count="exact")
+                .select("*", count="exact")
                 .eq("episode_id", episode["id"])
                 .execute()
             )
-            episode["comments_count"] = comments_result.count or 0
+            comment_count = comments_result.count if comments_result.count is not None else 0
+            episode["comments_count"] = comment_count
+            print(f"📊 Episode {episode['title'][:30]}... has {comment_count} comments")
         
         return episodes
 

@@ -41,11 +41,13 @@ class EpisodeResponse(BaseModel):
     title: str
     duration_seconds: int
     description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     raw_video_link: Optional[str] = None
     recorded_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
     full_transcript: Optional[str] = None
     status: str
+    comments_count: int = 0
     created_at: datetime
     updated_at: datetime
 

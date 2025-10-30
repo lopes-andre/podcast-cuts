@@ -237,106 +237,154 @@ export default function EpisodesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-6">
           {episodes.map((episode) => (
-            <Card key={episode.id} className="border-primary/20">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="flex items-center gap-2 flex-wrap">
-                      <Link
-                        href={`/episodes/${episode.id}`}
-                        className="hover:underline truncate"
-                      >
-                        {episode.title}
-                      </Link>
-                      <a
-                        href={episode.youtube_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                        title="View on YouTube"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </CardTitle>
-                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
-                      {episode.duration_seconds > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatTimestamp(episode.duration_seconds)}
+            <Link
+              key={episode.id}
+              href={`/episodes/${episode.id}`}
+              className="block group"
+            >
+              <Card className="border-primary/10 hover:border-primary/30 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/10 cursor-pointer relative overflow-hidden">
+                {/* Subtle gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                
+                <CardContent className="p-6">
+                  <div className="flex gap-6">
+                    {/* Thumbnail */}
+                    {episode.thumbnail_url ? (
+                      <div className="flex-shrink-0">
+                        <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-primary/10 shadow-md group-hover:shadow-xl group-hover:border-primary/20 transition-all duration-200">
+                          <img
+                            src={episode.thumbnail_url}
+                            alt={episode.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
                         </div>
-                      )}
-                      {episode.recorded_at && (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Recorded: {new Date(episode.recorded_at).toLocaleDateString()}
-                        </div>
-                      )}
-                      {episode.published_at && (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Published: {new Date(episode.published_at).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                    {episode.description && (
-                      <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-primary/10">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="h-3 w-3 text-primary" />
-                          <span className="text-xs font-semibold text-muted-foreground">Description</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {episode.description}
-                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex-shrink-0 w-48 h-28 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-primary/10 flex items-center justify-center">
+                        <Video className="h-10 w-10 text-muted-foreground/30" />
                       </div>
                     )}
-                    <div className="flex flex-wrap gap-3 mt-3">
-                      {episode.raw_video_link && (
-                        <a
-                          href={episode.raw_video_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline flex items-center gap-1"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Raw Video
-                        </a>
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Header: Title + Status */}
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xl font-semibold mb-1 group-hover:text-primary transition-colors line-clamp-2">
+                            {episode.title}
+                          </h3>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Created {new Date(episode.created_at).toLocaleDateString()}</span>
+                            <span>•</span>
+                            <a
+                              href={episode.youtube_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              YouTube
+                            </a>
+                          </div>
+                        </div>
+                        <StatusBadge status={episode.status} type="episode" />
+                      </div>
+
+                      {/* Metadata Grid */}
+                      <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground/70" />
+                          <span className="text-muted-foreground">Duration:</span>
+                          <span className="font-medium">
+                            {episode.duration_seconds > 0 
+                              ? formatTimestamp(episode.duration_seconds)
+                              : <span className="text-muted-foreground/50">—</span>
+                            }
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground/70" />
+                          <span className="text-muted-foreground">Recorded:</span>
+                          <span className="font-medium">
+                            {episode.recorded_at 
+                              ? new Date(episode.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : <span className="text-muted-foreground/50">—</span>
+                            }
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground/70" />
+                          <span className="text-muted-foreground">Published:</span>
+                          <span className="font-medium">
+                            {episode.published_at 
+                              ? new Date(episode.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : <span className="text-muted-foreground/50">—</span>
+                            }
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {episode.description && (
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-4">
+                          {episode.description}
+                        </p>
                       )}
-                      <button
-                        onClick={() => openCommentsDialog(episode.id)}
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        Comments ({episode.comments_count || 0})
-                      </button>
-                    </div>
-                  </div>
-                  <StatusBadge status={episode.status} type="episode" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm text-muted-foreground">
-                    Created {new Date(episode.created_at).toLocaleDateString()}
-                  </div>
-                  <div className="flex gap-2">
-                    <Link href={`/episodes/${episode.id}`}>
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                    </Link>
-                    <Dialog open={editDialogOpen === episode.id} onOpenChange={(open) => !open && setEditDialogOpen(null)}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(episode)}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                      </DialogTrigger>
+
+                      {/* Actions Footer */}
+                      <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                        <div className="flex items-center gap-4 text-xs">
+                          {episode.raw_video_link ? (
+                            <a
+                              href={episode.raw_video_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1.5 text-primary hover:underline transition-colors"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Raw Video
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-muted-foreground/40 cursor-not-allowed">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Raw Video
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              openCommentsDialog(episode.id);
+                            }}
+                            className="inline-flex items-center gap-1.5 text-primary hover:underline transition-colors"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            Comments ({episode.comments_count || 0})
+                          </button>
+                        </div>
+                        
+                        {/* Floating Action Buttons */}
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <Dialog open={editDialogOpen === episode.id} onOpenChange={(open) => !open && setEditDialogOpen(null)}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openEditDialog(episode);
+                                }}
+                                className="backdrop-blur-sm bg-background/80 hover:bg-background shadow-md"
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-1.5" />
+                                Edit
+                              </Button>
+                            </DialogTrigger>
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>
                           <DialogTitle>Edit Episode</DialogTitle>
@@ -382,26 +430,32 @@ export default function EpisodesPage() {
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                              <Label htmlFor="recorded_at">Recorded At</Label>
-                              <Input
-                                id="recorded_at"
-                                type="date"
-                                value={editFormData.recorded_at}
-                                onChange={(e) =>
-                                  setEditFormData({ ...editFormData, recorded_at: e.target.value })
-                                }
-                              />
+                              <Label htmlFor="recorded_at" className="text-sm font-medium">Recorded At</Label>
+                              <div className="relative">
+                                <Input
+                                  id="recorded_at"
+                                  type="date"
+                                  value={editFormData.recorded_at}
+                                  onChange={(e) =>
+                                    setEditFormData({ ...editFormData, recorded_at: e.target.value })
+                                  }
+                                  className="w-full cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:hover:bg-accent [&::-webkit-calendar-picker-indicator]:rounded [&::-webkit-calendar-picker-indicator]:p-1"
+                                />
+                              </div>
                             </div>
                             <div className="grid gap-2">
-                              <Label htmlFor="published_at">Published At</Label>
-                              <Input
-                                id="published_at"
-                                type="date"
-                                value={editFormData.published_at}
-                                onChange={(e) =>
-                                  setEditFormData({ ...editFormData, published_at: e.target.value })
-                                }
-                              />
+                              <Label htmlFor="published_at" className="text-sm font-medium">Published At</Label>
+                              <div className="relative">
+                                <Input
+                                  id="published_at"
+                                  type="date"
+                                  value={editFormData.published_at}
+                                  onChange={(e) =>
+                                    setEditFormData({ ...editFormData, published_at: e.target.value })
+                                  }
+                                  className="w-full cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:hover:bg-accent [&::-webkit-calendar-picker-indicator]:rounded [&::-webkit-calendar-picker-indicator]:p-1"
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -413,19 +467,27 @@ export default function EpisodesPage() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(episode.id)}
-                      disabled={isDeleting === episode.id}
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      {isDeleting === episode.id ? "Deleting..." : "Delete"}
-                    </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDelete(episode.id);
+                            }}
+                            disabled={isDeleting === episode.id}
+                            className="backdrop-blur-sm bg-destructive/80 hover:bg-destructive shadow-md"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                            {isDeleting === episode.id ? "Deleting..." : "Delete"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
