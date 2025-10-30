@@ -266,6 +266,14 @@ class HighlightService:
                 highlight["segments"] = highlight_segments  # Full segment objects with timestamps and speakers
                 highlight["segment_ids"] = [s["id"] for s in highlight_segments]  # Just IDs for compatibility
                 
+                # Compute transcript from segments (override stored transcript)
+                if highlight_segments:
+                    computed_transcript = " ".join(
+                        segment.get("text", "") for segment in highlight_segments
+                    )
+                    highlight["transcript"] = computed_transcript
+                # If no segments, keep the original transcript from DB
+                
                 # Add prompt info
                 prompt_id = highlight.get("prompt_id")
                 if prompt_id and prompt_id in prompts_map:
@@ -428,6 +436,13 @@ class HighlightService:
                         highlight_segments.append(segment_with_order)
                 
                 highlight["segments"] = highlight_segments
+                
+                # Compute transcript from segments (override stored transcript)
+                if highlight_segments:
+                    computed_transcript = " ".join(
+                        segment.get("text", "") for segment in highlight_segments
+                    )
+                    highlight["transcript"] = computed_transcript
             
             # Fetch prompt info if available
             if highlight.get("prompt_id"):

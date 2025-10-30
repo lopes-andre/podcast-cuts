@@ -1007,10 +1007,11 @@ export default function EpisodeDetailPage() {
                     {/* Segments with Individual Timestamps */}
                     {highlight.segments && highlight.segments.length > 0 && (
                       <div className="mt-3 space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-2">Segments:</div>
+                        <div className="text-xs font-medium text-muted-foreground mb-2">Segments ({highlight.segments.length}):</div>
                         {highlight.segments.map((segment: any, segIdx: number) => (
-                          <div key={segment.id} className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border">
-                            <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                          <div key={segment.id} className="p-3 bg-background/50 rounded-lg border space-y-2">
+                            {/* Segment Header */}
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="secondary" className="text-xs font-mono shrink-0">
                                 #{segIdx + 1}
                               </Badge>
@@ -1037,6 +1038,12 @@ export default function EpisodeDetailPage() {
                                 </div>
                               )}
                             </div>
+                            {/* Segment Text */}
+                            {segment.text && (
+                              <p className="text-sm leading-relaxed text-foreground/80 pl-1">
+                                {segment.text}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
