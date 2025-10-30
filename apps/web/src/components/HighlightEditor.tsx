@@ -407,7 +407,14 @@ export function HighlightEditor({
                           </div>
                           <p className="text-sm line-clamp-2">{segment.text}</p>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => toggleSegment(segment.id)}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent event bubbling to parent div
+                            toggleSegment(segment.id);
+                          }}
+                        >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
