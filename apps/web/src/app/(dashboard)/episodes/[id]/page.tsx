@@ -932,50 +932,148 @@ export default function EpisodeDetailPage() {
                 <p>No highlights match the selected filters</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {filteredHighlights.map((highlight) => (
                 <div
                   key={highlight.id}
-                  className="p-4 border rounded-lg bg-gradient-to-br from-card to-card/50 hover:from-accent/20 hover:to-accent/10 transition-all"
+                  className="border rounded-xl bg-gradient-to-br from-card to-card/80 overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-200"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
-                        {formatTimeRange(highlight.start_s, highlight.end_s)}
-                      </span>
-                      <StatusBadge status={highlight.status} type="highlight" />
-                      {highlight.speakers && highlight.speakers.length > 0 ? (
-                        <div className="flex gap-1">
-                          {highlight.speakers.map((speaker: string, idx: number) => {
-                            // Find speaker index for consistent coloring
-                            const speakerIndex = speakers.findIndex(
-                              (s) => s.mapped_name === speaker || s.speaker_label === speaker
-                            );
-                            return (
-                              <Badge
-                                key={`${speaker}-${idx}`}
-                                variant="default"
-                                className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
-                              >
-                              <Users className="h-3 w-3 mr-1" />
-                              {speaker}
-                            </Badge>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">
-                          (No speakers detected)
+                  {/* Header */}
+                  <div className="p-5 border-b bg-muted/30">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-2 flex-wrap flex-1">
+                        <span className="text-sm font-mono font-semibold text-primary">
+                          {formatTimeRange(highlight.start_s, highlight.end_s)}
                         </span>
-                      )}
+                        <StatusBadge status={highlight.status} type="highlight" />
+                        {highlight.speakers && highlight.speakers.length > 0 ? (
+                          <div className="flex gap-1.5">
+                            {highlight.speakers.map((speaker: string, idx: number) => {
+                              const speakerIndex = speakers.findIndex(
+                                (s) => s.mapped_name === speaker || s.speaker_label === speaker
+                              );
+                              return (
+                                <Badge
+                                  key={`${speaker}-${idx}`}
+                                  variant="default"
+                                  className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
+                                >
+                                <Users className="h-3 w-3 mr-1" />
+                                {speaker}
+                              </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {/* TODO: Open editor */}}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
                     </div>
+                    
+                    {/* Prompt Info */}
+                    {highlight.prompt && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>Detected by: <span className="font-medium">{highlight.prompt.name}</span> (v{highlight.prompt.version})</span>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm leading-relaxed">{highlight.transcript}</p>
-                  {highlight.reasoning && (
-                    <p className="text-xs text-muted-foreground mt-2 italic">
-                      💡 {highlight.reasoning}
-                    </p>
-                  )}
+
+                  {/* Transcript */}
+                  <div className="p-5">
+                    <p className="text-sm leading-relaxed text-foreground/90">{highlight.transcript}</p>
+                  </div>
+
+                  {/* Metadata Footer */}
+                  <div className="px-5 pb-5 space-y-3">
+                    {/* Video Links */}
+                    {(highlight.raw_video_link || highlight.edited_video_link) && (
+                      <div className="flex items-center gap-3 text-xs">
+                        {highlight.raw_video_link ? (
+                          <a
+                            href={highlight.raw_video_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            Raw Clip
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-muted-foreground/40">
+                            <Video className="h-3.5 w-3.5" />
+                            Raw Clip
+                          </span>
+                        )}
+                        {highlight.edited_video_link ? (
+                          <a
+                            href={highlight.edited_video_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            Edited Clip
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-muted-foreground/40">
+                            <Video className="h-3.5 w-3.5" />
+                            Edited Clip
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Social Profiles */}
+                    {highlight.social_profiles && highlight.social_profiles.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Posted to:</span>
+                        {highlight.social_profiles.map((profile: string, idx: number) => (
+                          <Badge key={`${profile}-${idx}`} variant="outline" className="text-xs">
+                            {profile}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Comments */}
+                    {highlight.comments && highlight.comments.length > 0 && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Comments ({highlight.comments.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {highlight.comments.map((comment: any, idx: number) => (
+                            <div key={comment.id || idx} className="pl-5 border-l-2 border-primary/20">
+                              <p className="text-xs text-foreground/80">{comment.content}</p>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(comment.created_at).toLocaleDateString('en-US', { 
+                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                                })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Segment Count */}
+                    {highlight.segment_ids && highlight.segment_ids.length > 0 && (
+                      <div className="text-xs text-muted-foreground italic">
+                        Composed of {highlight.segment_ids.length} segment{highlight.segment_ids.length > 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
               </div>
