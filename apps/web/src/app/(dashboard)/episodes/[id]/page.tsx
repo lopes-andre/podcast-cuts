@@ -801,114 +801,128 @@ export default function EpisodeDetailPage() {
             <CardDescription>AI-detected highlight moments with speaker information</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Unified Filters - Horizontal Layout */}
-            <div className="mb-6 p-6 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur space-y-4">
-              {/* Status Filters */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-sm font-semibold flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-primary"></span>
-                    Filter by Status
-                  </Label>
-                  {statusFilters.length < 3 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setStatusFilters(["pending", "approved", "discarded"])}
-                      className="h-6 px-2 text-xs"
-                    >
-                      Select All
-                    </Button>
-                  )}
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {[
-                    { value: "pending", gradient: "from-yellow-500 to-amber-500", label: "Pending" },
-                    { value: "approved", gradient: "from-green-500 to-emerald-500", label: "Approved" },
-                    { value: "discarded", gradient: "from-red-500 to-rose-500", label: "Discarded" },
-                  ].map(({ value, gradient, label }) => {
-                    const isSelected = statusFilters.includes(value);
-                    return (
-                      <Badge
-                        key={value}
-                        onClick={() => toggleStatusFilter(value)}
-                        className={`cursor-pointer transition-all select-none ${
-                          isSelected
-                            ? `bg-gradient-to-r ${gradient} text-white shadow-lg hover:scale-105`
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
-                      >
-                        <span className="mr-1.5">{isSelected ? "✓" : "○"}</span>
-                        {label}
-                      </Badge>
-                    );
-                  })}
-                  <span className="text-xs text-muted-foreground self-center ml-2">
-                    ({statusFilters.length} selected)
-                  </span>
-                </div>
-              </div>
-
-              {/* Speaker Filters */}
-              {uniqueHighlightSpeakers.length > 0 && (
+            {/* Unified Filters - Clean Horizontal Layout */}
+            <div className="mb-6 p-6 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur">
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Status Filters */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-semibold flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-primary"></span>
-                      Filter by Speaker
+                      Status
                     </Label>
-                    <div className="flex gap-2">
-                      {speakerFilters.length < uniqueHighlightSpeakers.length && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSpeakerFilters(uniqueHighlightSpeakers)}
-                          className="h-6 px-2 text-xs"
-                        >
-                          Select All
-                        </Button>
-                      )}
-                      {speakerFilters.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSpeakerFilters([])}
-                          className="h-6 px-2 text-xs"
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </div>
+                    {statusFilters.length < 3 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setStatusFilters(["pending", "approved", "discarded"])}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Select All
+                      </Button>
+                    )}
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {uniqueHighlightSpeakers.map((speaker, idx) => {
-                      const speakerIndex = speakers.findIndex(
-                        (s) => s.mapped_name === speaker || s.speaker_label === speaker
-                      );
-                      const isSelected = speakerFilters.includes(speaker);
-                      const showAllIfEmpty = speakerFilters.length === 0;
-                      const isActive = isSelected || showAllIfEmpty;
+                    {[
+                      { value: "pending", gradient: "from-yellow-500 to-amber-500", label: "Pending" },
+                      { value: "approved", gradient: "from-green-500 to-emerald-500", label: "Approved" },
+                      { value: "discarded", gradient: "from-red-500 to-rose-500", label: "Discarded" },
+                    ].map(({ value, gradient, label }) => {
+                      const isSelected = statusFilters.includes(value);
                       return (
                         <Badge
-                          key={speaker}
-                          onClick={() => toggleSpeakerFilter(speaker)}
+                          key={value}
+                          onClick={() => toggleStatusFilter(value)}
                           className={`cursor-pointer transition-all select-none ${
-                            isActive
-                              ? `bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)} text-white shadow-lg hover:scale-105`
+                            isSelected
+                              ? `bg-gradient-to-r ${gradient} text-white shadow-lg hover:scale-105`
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                         >
-                          <span className="mr-1.5">{isSelected ? "✓" : (showAllIfEmpty ? "✓" : "○")}</span>
-                          {speaker}
+                          <span className="mr-1.5">{isSelected ? "✓" : "○"}</span>
+                          {label}
                         </Badge>
                       );
                     })}
-                    <span className="text-xs text-muted-foreground self-center ml-2">
-                      ({speakerFilters.length === 0 ? "all" : speakerFilters.length} selected)
-                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    {statusFilters.length} of 3 selected
                   </div>
                 </div>
-              )}
+
+                {/* Speaker Filters */}
+                {uniqueHighlightSpeakers.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-primary"></span>
+                        Speakers
+                      </Label>
+                      <div className="flex gap-2">
+                        {speakerFilters.length === 0 ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSpeakerFilters(uniqueHighlightSpeakers)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            Select All
+                          </Button>
+                        ) : speakerFilters.length < uniqueHighlightSpeakers.length ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSpeakerFilters(uniqueHighlightSpeakers)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            Select All
+                          </Button>
+                        ) : null}
+                        {speakerFilters.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSpeakerFilters([])}
+                            className="h-6 px-2 text-xs"
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {uniqueHighlightSpeakers.map((speaker, idx) => {
+                        const speakerIndex = speakers.findIndex(
+                          (s) => s.mapped_name === speaker || s.speaker_label === speaker
+                        );
+                        const isSelected = speakerFilters.includes(speaker);
+                        // When nothing is selected, treat as "show all" but don't show checkmarks
+                        const showInResults = speakerFilters.length === 0 || isSelected;
+                        return (
+                          <Badge
+                            key={speaker}
+                            onClick={() => toggleSpeakerFilter(speaker)}
+                            className={`cursor-pointer transition-all select-none ${
+                              isSelected
+                                ? `bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)} text-white shadow-lg hover:scale-105`
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            }`}
+                          >
+                            <span className="mr-1.5">{isSelected ? "✓" : "○"}</span>
+                            {speaker}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      {speakerFilters.length === 0 
+                        ? `Showing all ${uniqueHighlightSpeakers.length} speakers` 
+                        : `${speakerFilters.length} of ${uniqueHighlightSpeakers.length} selected`
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Highlights List */}
