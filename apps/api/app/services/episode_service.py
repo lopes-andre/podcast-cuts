@@ -44,15 +44,47 @@ class EpisodeService:
         return result.data[0] if result.data else None
 
     async def get_segments(self, episode_id: str) -> list[dict[str, Any]]:
-        """Get all segments for an episode."""
-        result = (
+        """Get all segments for an episode with speaker information."""
+        # Get segments
+        segments_result = (
             supabase.table("segments")
             .select("*")
             .eq("episode_id", episode_id)
             .order("start_s")
             .execute()
         )
-        return result.data
+        
+        segments = segments_result.data
+        
+        # Get all speakers for this episode
+        speakers_result = (
+            supabase.table("speakers")
+            .select("*")
+            .eq("episode_id", episode_id)
+            .execute()
+        )
+        speakers_map = {s["id"]: s for s in speakers_result.data}
+        
+        # Get segment-speaker relationships
+        for segment in segments:
+            segment_speakers_result = (
+                supabase.table("segment_speakers")
+                .select("speaker_id")
+                .eq("segment_id", segment["id"])
+                .execute()
+            )
+            
+            # Add speaker info to segment
+            speaker_names = []
+            for ss in segment_speakers_result.data:
+                speaker = speakers_map.get(ss["speaker_id"])
+                if speaker:
+                    name = speaker.get("mapped_name") or speaker.get("speaker_label")
+                    speaker_names.append(name)
+            
+            segment["speakers"] = speaker_names
+        
+        return segments
 
     async def update_episode(
         self, episode_id: str, data: dict[str, Any]

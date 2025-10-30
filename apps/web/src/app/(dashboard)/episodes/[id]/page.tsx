@@ -6,8 +6,19 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, ExternalLink, Sparkles, Users, FileText } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ArrowLeft, ExternalLink, Sparkles, Users, FileText, Edit } from "lucide-react";
 import { formatTimeRange } from "@/lib/utils";
 
 export default function EpisodeDetailPage() {
@@ -21,6 +32,8 @@ export default function EpisodeDetailPage() {
   const [highlights, setHighlights] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [openDialogId, setOpenDialogId] = useState<string | null>(null);
+  const [speakerNameInput, setSpeakerNameInput] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchEpisodeData();
@@ -50,6 +63,51 @@ export default function EpisodeDetailPage() {
     } finally {
       setSeeding(false);
     }
+  };
+
+  const updateSpeakerName = async (speakerId: string) => {
+    const newName = speakerNameInput[speakerId];
+    if (!newName || !newName.trim()) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/speakers/${speakerId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mapped_name: newName.trim() }),
+        }
+      );
+
+      if (response.ok) {
+        // Close dialog and reset state
+        setOpenDialogId(null);
+        setSpeakerNameInput((prev) => {
+          const updated = { ...prev };
+          delete updated[speakerId];
+          return updated;
+        });
+        // Refresh data to show updated speaker names
+        await fetchEpisodeData();
+      }
+    } catch (error) {
+      console.error("Failed to update speaker:", error);
+    }
+  };
+
+  // Helper function to get speaker color based on index
+  const getSpeakerColor = (index: number) => {
+    const colors = [
+      "from-blue-500 to-cyan-500",
+      "from-purple-500 to-pink-500",
+      "from-orange-500 to-red-500",
+      "from-green-500 to-emerald-500",
+      "from-yellow-500 to-orange-500",
+      "from-pink-500 to-rose-500",
+      "from-indigo-500 to-purple-500",
+      "from-teal-500 to-green-500",
+    ];
+    return colors[index % colors.length];
   };
 
   const fetchEpisodeData = async () => {
@@ -181,24 +239,98 @@ export default function EpisodeDetailPage() {
 
       {/* Speakers Section */}
       {speakers.length > 0 && (
-        <Card>
+        <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle>Speakers</CardTitle>
-            <CardDescription>Map speaker labels to real names</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Speakers
+            </CardTitle>
+            <CardDescription>Map speaker labels to real names for better identification</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {speakers.map((speaker) => (
-                <div key={speaker.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <Badge variant="outline">{speaker.speaker_label}</Badge>
-                    {speaker.mapped_name && (
-                      <span className="ml-2 font-medium">{speaker.mapped_name}</span>
-                    )}
+            <div className="grid gap-3 md:grid-cols-2">
+              {speakers.map((speaker, index) => (
+                <div
+                  key={speaker.id}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getSpeakerColor(index)} flex items-center justify-center text-white font-semibold`}>
+                      {speaker.mapped_name ? speaker.mapped_name[0].toUpperCase() : "?"}
+                    </div>
+                    <div>
+                      <Badge variant="secondary" className="mb-1">
+                        {speaker.speaker_label}
+                      </Badge>
+                      {speaker.mapped_name ? (
+                        <p className="font-medium">{speaker.mapped_name}</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No name set</p>
+                      )}
+                    </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    {speaker.mapped_name ? "Edit Name" : "Add Name"}
-                  </Button>
+                  <Dialog 
+                    open={openDialogId === speaker.id} 
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setOpenDialogId(speaker.id);
+                        setSpeakerNameInput((prev) => ({
+                          ...prev,
+                          [speaker.id]: speaker.mapped_name || "",
+                        }));
+                      } else {
+                        setOpenDialogId(null);
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        {speaker.mapped_name ? "Edit" : "Set Name"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Speaker Name</DialogTitle>
+                        <DialogDescription>
+                          Assign a name to {speaker.speaker_label} for better identification in
+                          transcripts and highlights.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor={`speaker-name-${speaker.id}`}>Speaker Name</Label>
+                          <Input
+                            id={`speaker-name-${speaker.id}`}
+                            placeholder="e.g., André, Maria, Host..."
+                            value={speakerNameInput[speaker.id] || ""}
+                            onChange={(e) =>
+                              setSpeakerNameInput((prev) => ({
+                                ...prev,
+                                [speaker.id]: e.target.value,
+                              }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                updateSpeakerName(speaker.id);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button 
+                          onClick={() => updateSpeakerName(speaker.id)} 
+                          disabled={!speakerNameInput[speaker.id]?.trim()}
+                        >
+                          Save Name
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               ))}
             </div>
@@ -225,28 +357,46 @@ export default function EpisodeDetailPage() {
       {segments.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Segments ({segments.length})</CardTitle>
-            <CardDescription>Transcription with timestamps</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Segments ({segments.length})
+            </CardTitle>
+            <CardDescription>Transcription with timestamps and speaker identification</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {segments.map((segment) => (
-                <div key={segment.id} className="p-3 border rounded-lg">
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              {segments.map((segment, index) => (
+                <div
+                  key={segment.id}
+                  className="p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                >
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {formatTimeRange(segment.start_s, segment.end_s)}
-                    </span>
-                    {segment.speakers && segment.speakers.length > 0 && (
-                      <div className="flex gap-1">
-                        {segment.speakers.map((speaker: string) => (
-                          <Badge key={speaker} variant="secondary" className="text-xs">
-                            {speaker}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+                        {formatTimeRange(segment.start_s, segment.end_s)}
+                      </span>
+                      {segment.speakers && segment.speakers.length > 0 && (
+                        <div className="flex gap-1">
+                          {segment.speakers.map((speaker: string, idx: number) => {
+                            // Find speaker index for consistent coloring
+                            const speakerIndex = speakers.findIndex(
+                              (s) => s.mapped_name === speaker || s.speaker_label === speaker
+                            );
+                            return (
+                              <Badge
+                                key={`${speaker}-${idx}`}
+                                variant="default"
+                                className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
+                              >
+                                {speaker}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm">{segment.text}</p>
+                  <p className="text-sm leading-relaxed">{segment.text}</p>
                 </div>
               ))}
             </div>
@@ -256,24 +406,55 @@ export default function EpisodeDetailPage() {
 
       {/* Highlights Section */}
       {highlights.length > 0 && (
-        <Card>
+        <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle>Highlights ({highlights.length})</CardTitle>
-            <CardDescription>AI-detected highlight moments</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Highlights ({highlights.length})
+            </CardTitle>
+            <CardDescription>AI-detected highlight moments with speaker information</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {highlights.map((highlight) => (
-                <div key={highlight.id} className="p-4 border rounded-lg">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-muted-foreground">
+                <div
+                  key={highlight.id}
+                  className="p-4 border rounded-lg bg-gradient-to-br from-card to-card/50 hover:from-accent/20 hover:to-accent/10 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
                         {formatTimeRange(highlight.start_s, highlight.end_s)}
                       </span>
                       <StatusBadge status={highlight.status} type="highlight" />
+                      {highlight.speakers && highlight.speakers.length > 0 && (
+                        <div className="flex gap-1">
+                          {highlight.speakers.map((speaker: string, idx: number) => {
+                            // Find speaker index for consistent coloring
+                            const speakerIndex = speakers.findIndex(
+                              (s) => s.mapped_name === speaker || s.speaker_label === speaker
+                            );
+                            return (
+                              <Badge
+                                key={`${speaker}-${idx}`}
+                                variant="default"
+                                className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
+                              >
+                                <Users className="h-3 w-3 mr-1" />
+                                {speaker}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="text-sm">{highlight.transcript}</p>
+                  <p className="text-sm leading-relaxed">{highlight.transcript}</p>
+                  {highlight.reasoning && (
+                    <p className="text-xs text-muted-foreground mt-2 italic">
+                      💡 {highlight.reasoning}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

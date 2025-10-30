@@ -46,6 +46,7 @@ supabase db push
 
 1. `001_initial_schema.sql` - Creates all tables, indexes, and triggers
 2. `002_seed_data.sql` - Inserts default prompt templates
+3. `003_rename_used_to_approved.sql` - Updates highlight status enum from "used" to "approved"
 
 ## Local Development
 

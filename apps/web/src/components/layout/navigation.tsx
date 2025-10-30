@@ -17,13 +17,17 @@ export function Navigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="border-b">
+    <nav className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <Sparkles className="h-6 w-6 text-primary" />
-              Podcast Highlighter
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl group">
+              <div className="p-1 rounded-lg bg-gradient-to-br from-primary to-purple-600 group-hover:from-primary/80 group-hover:to-purple-600/80 transition-all">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                Podcast Highlighter
+              </span>
             </Link>
             <div className="flex gap-1">
               {navItems.map((item) => {
@@ -34,9 +38,9 @@ export function Navigation() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
                       isActive
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >

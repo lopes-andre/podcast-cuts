@@ -131,7 +131,7 @@ class MockDataService:
                 "start_s": start_s,
                 "end_s": end_s,
                 "transcript": transcript,
-                "status": random.choice(["pending", "pending", "pending", "used"]),  # Mostly pending
+                "status": random.choice(["pending", "pending", "pending", "approved"]),  # Mostly pending
                 "comments": f"Detected as: {random.choice(highlight_types)}",
             }
             
