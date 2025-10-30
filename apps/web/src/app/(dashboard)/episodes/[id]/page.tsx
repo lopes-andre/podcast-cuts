@@ -49,6 +49,10 @@ export default function EpisodeDetailPage() {
   // Highlight editor
   const [editingHighlightId, setEditingHighlightId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  
+  // Highlight comments modal
+  const [showHighlightComments, setShowHighlightComments] = useState(false);
+  const [selectedHighlightForComments, setSelectedHighlightForComments] = useState<any>(null);
 
   useEffect(() => {
     fetchEpisodeData();
@@ -1054,14 +1058,27 @@ export default function EpisodeDetailPage() {
                     {/* Comments */}
                     {highlight.comments && highlight.comments.length > 0 && (
                       <div className="pt-3 border-t">
-                        <div className="flex items-center gap-2 mb-2">
-                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground">
-                            Comments ({highlight.comments.length})
-                          </span>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground">
+                              Comments ({highlight.comments.length})
+                            </span>
+                          </div>
+                          {highlight.comments.length > 2 && (
+                            <button
+                              onClick={() => {
+                                setSelectedHighlightForComments(highlight);
+                                setShowHighlightComments(true);
+                              }}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              View All
+                            </button>
+                          )}
                         </div>
                         <div className="space-y-2">
-                          {highlight.comments.map((comment: any, idx: number) => (
+                          {highlight.comments.slice(0, 2).map((comment: any, idx: number) => (
                             <div key={comment.id || idx} className="pl-5 border-l-2 border-primary/20">
                               <p className="text-xs text-foreground/80">{comment.content}</p>
                               <span className="text-[10px] text-muted-foreground">
@@ -1120,6 +1137,68 @@ export default function EpisodeDetailPage() {
           }}
         />
       )}
+
+      {/* Highlight Comments Modal */}
+      <Dialog open={showHighlightComments} onOpenChange={setShowHighlightComments}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Highlight Comments
+            </DialogTitle>
+            <DialogDescription>
+              All comments for this highlight ({selectedHighlightForComments?.comments?.length || 0} total)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto py-4">
+            {selectedHighlightForComments?.comments && selectedHighlightForComments.comments.length > 0 ? (
+              <div className="space-y-4">
+                {selectedHighlightForComments.comments.map((comment: any, idx: number) => (
+                  <div key={comment.id || idx} className="p-4 border rounded-lg bg-muted/30">
+                    <p className="text-sm mb-2">{comment.content}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(comment.created_at).toLocaleString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: 'numeric',
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No comments yet</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowHighlightComments(false);
+                setSelectedHighlightForComments(null);
+              }}
+            >
+              Close
+            </Button>
+            <Button 
+              onClick={() => {
+                setShowHighlightComments(false);
+                setEditingHighlightId(selectedHighlightForComments.id);
+                setEditorOpen(true);
+              }}
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Highlight
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
