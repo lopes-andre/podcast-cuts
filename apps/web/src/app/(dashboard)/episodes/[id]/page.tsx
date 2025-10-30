@@ -1078,37 +1078,106 @@ export default function EpisodeDetailPage() {
                 {filteredHighlights.map((highlight) => (
                 <div
                   key={highlight.id}
-                  className="border rounded-xl bg-gradient-to-br from-card to-card/80 overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-200"
+                  className="border rounded-xl bg-card overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-200"
                 >
-                  {/* Header */}
-                  <div className="p-5 border-b bg-muted/30">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-2 flex-wrap flex-1">
-                        <StatusBadge status={highlight.status} type="highlight" />
+                  {/* Compact Header */}
+                  <div className="px-4 py-3 border-b bg-muted/20 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                      <StatusBadge status={highlight.status} type="highlight" />
+                      
+                      {/* Video Link Badges */}
+                      <div className="flex items-center gap-1.5">
+                        {highlight.raw_video_link ? (
+                          <a
+                            href={highlight.raw_video_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Video className="h-3 w-3" />
+                            Raw
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/50 text-muted-foreground/40">
+                            <Video className="h-3 w-3" />
+                            Raw
+                          </span>
+                        )}
+                        
+                        {highlight.edited_video_link ? (
+                          <a
+                            href={highlight.edited_video_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Video className="h-3 w-3" />
+                            Edited
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-muted/50 text-muted-foreground/40">
+                            <Video className="h-3 w-3" />
+                            Edited
+                          </span>
+                        )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => {
-                          setEditingHighlightId(highlight.id);
-                          setEditorOpen(true);
-                        }}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
+                      
+                      {/* Social Profiles in Header */}
+                      {highlight.social_profiles && highlight.social_profiles.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          {highlight.social_profiles.map((profile: string, idx: number) => (
+                            <Badge key={`${profile}-${idx}`} variant="outline" className="text-[10px] h-5 px-1.5">
+                              {profile}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Comments Indicator */}
+                      {highlight.comments && highlight.comments.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setSelectedHighlightForComments(highlight);
+                            setShowHighlightComments(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 transition-colors"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          {highlight.comments.length}
+                        </button>
+                      )}
                     </div>
                     
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1.5 shrink-0"
+                      onClick={() => {
+                        setEditingHighlightId(highlight.id);
+                        setEditorOpen(true);
+                      }}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                      <span className="text-xs">Edit</span>
+                    </Button>
+                  </div>
+
+                  {/* Content Body - Unified */}
+                  <div className="p-4 space-y-3">
                     {/* Segments with Individual Timestamps */}
                     {highlight.segments && highlight.segments.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground mb-2">Segments ({highlight.segments.length}):</div>
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                          <div className="h-1 w-1 rounded-full bg-primary"></div>
+                          {highlight.segments.length} Segment{highlight.segments.length > 1 ? 's' : ''}
+                        </div>
                         {highlight.segments.map((segment: any, segIdx: number) => (
-                          <div key={segment.id} className="p-3 bg-background/50 rounded-lg border space-y-2">
+                          <div key={segment.id} className="p-3 bg-muted/30 rounded-lg space-y-2 hover:bg-muted/40 transition-colors">
                             {/* Segment Header */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="secondary" className="text-xs font-mono shrink-0">
+                              <Badge variant="secondary" className="text-[10px] font-mono h-5 px-1.5">
                                 #{segIdx + 1}
                               </Badge>
                               <span className="text-xs font-mono font-semibold text-primary shrink-0">
@@ -1124,9 +1193,9 @@ export default function EpisodeDetailPage() {
                                       <Badge
                                         key={`${speaker}-${idx}`}
                                         variant="default"
-                                        className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
+                                        className={`text-[10px] h-5 px-1.5 bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
                                       >
-                                        <Users className="h-3 w-3 mr-1" />
+                                        <Users className="h-2.5 w-2.5 mr-1" />
                                         {speaker}
                                       </Badge>
                                     );
@@ -1136,7 +1205,7 @@ export default function EpisodeDetailPage() {
                             </div>
                             {/* Segment Text */}
                             {segment.text && (
-                              <p className="text-sm leading-relaxed text-foreground/80 pl-1">
+                              <p className="text-sm leading-relaxed text-foreground/90">
                                 {segment.text}
                               </p>
                             )}
@@ -1147,99 +1216,9 @@ export default function EpisodeDetailPage() {
                     
                     {/* Prompt Info */}
                     {highlight.prompt && (
-                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
                         <Sparkles className="h-3.5 w-3.5" />
                         <span>Detected by: <span className="font-medium">{highlight.prompt.name}</span> (v{highlight.prompt.version})</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Metadata Footer */}
-                  <div className="px-5 pb-5 space-y-3">
-                    {/* Video Links */}
-                    {(highlight.raw_video_link || highlight.edited_video_link) && (
-                      <div className="flex items-center gap-3 text-xs">
-                        {highlight.raw_video_link ? (
-                          <a
-                            href={highlight.raw_video_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                          >
-                            <Video className="h-3.5 w-3.5" />
-                            Raw Clip
-                          </a>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-muted-foreground/40">
-                            <Video className="h-3.5 w-3.5" />
-                            Raw Clip
-                          </span>
-                        )}
-                        {highlight.edited_video_link ? (
-                          <a
-                            href={highlight.edited_video_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                          >
-                            <Video className="h-3.5 w-3.5" />
-                            Edited Clip
-                          </a>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-muted-foreground/40">
-                            <Video className="h-3.5 w-3.5" />
-                            Edited Clip
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Social Profiles */}
-                    {highlight.social_profiles && highlight.social_profiles.length > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground">Posted to:</span>
-                        {highlight.social_profiles.map((profile: string, idx: number) => (
-                          <Badge key={`${profile}-${idx}`} variant="outline" className="text-xs">
-                            {profile}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Comments */}
-                    {highlight.comments && highlight.comments.length > 0 && (
-                      <div className="pt-3 border-t">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Comments ({highlight.comments.length})
-                            </span>
-                          </div>
-                          {highlight.comments.length > 2 && (
-                            <button
-                              onClick={() => {
-                                setSelectedHighlightForComments(highlight);
-                                setShowHighlightComments(true);
-                              }}
-                              className="text-xs text-primary hover:underline"
-                            >
-                              View All
-                            </button>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          {highlight.comments.slice(0, 2).map((comment: any, idx: number) => (
-                            <div key={comment.id || idx} className="pl-5 border-l-2 border-primary/20">
-                              <p className="text-xs text-foreground/80">{comment.content}</p>
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(comment.created_at).toLocaleDateString('en-US', { 
-                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
-                                })}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     )}
                   </div>
