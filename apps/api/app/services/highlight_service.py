@@ -101,6 +101,7 @@ class HighlightService:
                 segments_by_episode[ep_id].append(seg)
             
             # Now assign speakers to each highlight
+            # Note: A highlight can span multiple segments with different speakers
             for highlight in highlights:
                 try:
                     episode_id = highlight["episode_id"]
@@ -108,10 +109,12 @@ class HighlightService:
                     end_time = highlight["end_s"]
                     
                     # Find overlapping segments for this highlight
+                    # A segment overlaps if it starts before the highlight ends AND ends after the highlight starts
+                    # This excludes segments that just touch at the boundary
                     episode_segments = segments_by_episode.get(episode_id, [])
                     overlapping_segments = [
                         seg for seg in episode_segments
-                        if seg["end_s"] >= start_time and seg["start_s"] <= end_time
+                        if seg["start_s"] < end_time and seg["end_s"] > start_time
                     ]
                     
                     # Get unique speakers from overlapping segments
@@ -135,6 +138,8 @@ class HighlightService:
                     
         except Exception as e:
             print(f"Error in batch speaker fetching: {e}")
+            import traceback
+            traceback.print_exc()
             # Fallback: set empty speakers for all
             for highlight in highlights:
                 highlight["speakers"] = []

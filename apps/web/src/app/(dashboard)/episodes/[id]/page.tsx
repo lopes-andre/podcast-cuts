@@ -35,6 +35,10 @@ export default function EpisodeDetailPage() {
   const [openDialogId, setOpenDialogId] = useState<string | null>(null);
   const [speakerNameInput, setSpeakerNameInput] = useState<Record<string, string>>({});
   const [updating, setUpdating] = useState(false);
+  
+  // Highlight filters
+  const [statusFilters, setStatusFilters] = useState<string[]>(["pending", "approved", "discarded"]);
+  const [speakerFilters, setSpeakerFilters] = useState<string[]>([]);
 
   useEffect(() => {
     fetchEpisodeData();
@@ -148,6 +152,43 @@ export default function EpisodeDetailPage() {
     ];
     return colors[index % colors.length];
   };
+
+  // Filter highlights based on selected filters
+  const filteredHighlights = highlights.filter((highlight) => {
+    // Filter by status
+    if (!statusFilters.includes(highlight.status)) {
+      return false;
+    }
+    
+    // Filter by speaker (if any speaker filter is selected)
+    if (speakerFilters.length > 0 && highlight.speakers) {
+      const hasMatchingSpeaker = highlight.speakers.some((speaker: string) =>
+        speakerFilters.includes(speaker)
+      );
+      if (!hasMatchingSpeaker) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  const toggleStatusFilter = (status: string) => {
+    setStatusFilters((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  };
+
+  const toggleSpeakerFilter = (speaker: string) => {
+    setSpeakerFilters((prev) =>
+      prev.includes(speaker) ? prev.filter((s) => s !== speaker) : [...prev, speaker]
+    );
+  };
+
+  // Get unique speakers from all highlights
+  const uniqueHighlightSpeakers = Array.from(
+    new Set(highlights.flatMap((h) => h.speakers || []))
+  );
 
   const fetchEpisodeData = async () => {
     try {
@@ -456,13 +497,94 @@ export default function EpisodeDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
-              Highlights ({highlights.length})
+              Highlights ({filteredHighlights.length} of {highlights.length})
             </CardTitle>
             <CardDescription>AI-detected highlight moments with speaker information</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {highlights.map((highlight) => (
+            {/* Filters */}
+            <div className="mb-6 space-y-4 p-6 border rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur">
+              <div>
+                <Label className="text-sm font-semibold mb-3 block flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-primary"></span>
+                  Filter by Status
+                </Label>
+                <div className="flex gap-2">
+                  {[
+                    { value: "pending", gradient: "from-yellow-500 to-amber-500" },
+                    { value: "approved", gradient: "from-green-500 to-emerald-500" },
+                    { value: "discarded", gradient: "from-red-500 to-rose-500" },
+                  ].map(({ value, gradient }) => (
+                    <Badge
+                      key={value}
+                      onClick={() => toggleStatusFilter(value)}
+                      className={`cursor-pointer transition-all capitalize ${
+                        statusFilters.includes(value)
+                          ? `bg-gradient-to-r ${gradient} text-white shadow-lg hover:scale-105`
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {value}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {uniqueHighlightSpeakers.length > 0 && (
+                <div>
+                  <Label className="text-sm font-semibold mb-3 block flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-primary"></span>
+                    Filter by Speaker
+                    {speakerFilters.length > 0 && (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({speakerFilters.length} selected)
+                      </span>
+                    )}
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {uniqueHighlightSpeakers.map((speaker, idx) => {
+                      const speakerIndex = speakers.findIndex(
+                        (s) => s.mapped_name === speaker || s.speaker_label === speaker
+                      );
+                      const isActive = speakerFilters.includes(speaker) || speakerFilters.length === 0;
+                      return (
+                        <Badge
+                          key={speaker}
+                          onClick={() => toggleSpeakerFilter(speaker)}
+                          className={`cursor-pointer transition-all ${
+                            isActive
+                              ? `bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)} text-white shadow-lg hover:scale-105`
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {speaker}
+                        </Badge>
+                      );
+                    })}
+                    {speakerFilters.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSpeakerFilters([])}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Highlights List */}
+            {filteredHighlights.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No highlights match the selected filters</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredHighlights.map((highlight) => (
                 <div
                   key={highlight.id}
                   className="p-4 border rounded-lg bg-gradient-to-br from-card to-card/50 hover:from-accent/20 hover:to-accent/10 transition-all"
@@ -473,7 +595,7 @@ export default function EpisodeDetailPage() {
                         {formatTimeRange(highlight.start_s, highlight.end_s)}
                       </span>
                       <StatusBadge status={highlight.status} type="highlight" />
-                      {highlight.speakers && highlight.speakers.length > 0 && (
+                      {highlight.speakers && highlight.speakers.length > 0 ? (
                         <div className="flex gap-1">
                           {highlight.speakers.map((speaker: string, idx: number) => {
                             // Find speaker index for consistent coloring
@@ -486,12 +608,16 @@ export default function EpisodeDetailPage() {
                                 variant="default"
                                 className={`text-xs bg-gradient-to-r ${getSpeakerColor(speakerIndex >= 0 ? speakerIndex : idx)}`}
                               >
-                                <Users className="h-3 w-3 mr-1" />
-                                {speaker}
-                              </Badge>
+                              <Users className="h-3 w-3 mr-1" />
+                              {speaker}
+                            </Badge>
                             );
                           })}
                         </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">
+                          (No speakers detected)
+                        </span>
                       )}
                     </div>
                   </div>
@@ -503,7 +629,8 @@ export default function EpisodeDetailPage() {
                   )}
                 </div>
               ))}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

@@ -1,4 +1,5 @@
 """Seed endpoint for populating mock data."""
+from typing import Any
 from fastapi import APIRouter, HTTPException
 from app.services.database import supabase
 
@@ -6,7 +7,7 @@ router = APIRouter()
 
 
 @router.post("/seed-mock-data/{episode_id}")
-async def seed_mock_data(episode_id: str) -> dict[str, str]:
+async def seed_mock_data(episode_id: str) -> dict[str, Any]:
     """
     Populate an episode with realistic mock transcription data.
     This simulates what WhisperX and Pyannote would produce.
@@ -16,6 +17,19 @@ async def seed_mock_data(episode_id: str) -> dict[str, str]:
         episode_result = supabase.table("episodes").select("*").eq("id", episode_id).execute()
         if not episode_result.data:
             raise HTTPException(status_code=404, detail="Episode not found")
+        
+        # Delete existing data for this episode (to allow re-seeding)
+        # Order matters due to foreign key constraints
+        supabase.table("highlights").delete().eq("episode_id", episode_id).execute()
+        
+        # Get existing segment IDs to delete segment_speakers
+        existing_segments = supabase.table("segments").select("id").eq("episode_id", episode_id).execute()
+        if existing_segments.data:
+            segment_ids = [s["id"] for s in existing_segments.data]
+            supabase.table("segment_speakers").delete().in_("segment_id", segment_ids).execute()
+        
+        supabase.table("segments").delete().eq("episode_id", episode_id).execute()
+        supabase.table("speakers").delete().eq("episode_id", episode_id).execute()
         
         # Create mock speakers
         speakers_data = [
@@ -196,5 +210,8 @@ async def seed_mock_data(episode_id: str) -> dict[str, str]:
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        print(f"Error in seed_mock_data: {error_detail}")
         raise HTTPException(status_code=500, detail=str(e))
 

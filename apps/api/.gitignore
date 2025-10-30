@@ -75,6 +75,7 @@ dmypy.json
 # Downloaded files
 downloads/
 models/
+!app/models/  # Exception: Include Pydantic models (Python code)
 *.pt
 *.onnx
 *.wav
